@@ -1,0 +1,43 @@
+{
+  "name": "chokepoint-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Chokepoint's web UI: the story page and the app (React + Vite). Built into chokepoint/web/ and served by FastAPI.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "e2e": "playwright test --grep-invert screens",
+    "check": "tsc -b && eslint . && vitest run"
+  },
+  "dependencies": {
+    "@fontsource-variable/literata": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "@fontsource/poppins": "5.3.0",
+    "@gsap/react": "2.1.2",
+    "cytoscape": "3.34.3",
+    "cytoscape-dagre": "4.0.1",
+    "cytoscape-fcose": "2.2.0",
+    "gsap": "3.15.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.13.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "eslint": "10.11.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.12.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1",
+    "vite": "8.3.0",
+    "vitest": "5.0.1"
+  }
+}

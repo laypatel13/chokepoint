@@ -1,0 +1,124 @@
+/* Chokepoint design tokens, after Netra's "Quiet Canvas" (dark).
+   Near-neutral greys carry the interface; saturated color is spent only where it means something:
+     brand blue  interactive (links, primary buttons) and "your project" in the graph
+     highlight   signal yellow: what one maintainer can publish (Q2), and the hero marker
+     danger      the poison and its path (Q1)
+     ok          the fix
+   Values are "R G B" triplets so soft tints can be derived: rgb(var(--c-x) / .2). */
+:root {
+  --c-bg: 19 19 22;
+  --c-surface: 26 26 30;
+  --c-surface-2: 33 33 38;
+  --c-surface-3: 42 42 48;
+  --c-ink: 237 237 239;
+  --c-ink-2: 185 185 192;
+  --c-ink-3: 142 142 150;
+  --c-border: 48 48 54;
+  --c-border-strong: 69 69 77;
+  --c-control: 110 110 120;
+  --c-brand: 110 168 255;
+  --c-brand-hover: 143 188 255;
+  --c-brand-soft: 22 35 58;
+  --c-on-brand: 11 18 32;
+  --c-highlight: 255 222 89;
+  --c-on-highlight: 36 28 0;
+  --c-ok: 74 222 128;
+  --c-ok-soft: 16 40 26;
+  --c-warn: 242 153 74;
+  --c-warn-soft: 51 34 15;
+  --c-danger: 255 107 91;
+  --c-danger-soft: 58 23 20;
+
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / .4);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / .5), 0 6px 18px -10px rgb(0 0 0 / .7);
+  --shadow-lift: 0 2px 6px rgb(0 0 0 / .5), 0 16px 36px -14px rgb(0 0 0 / .8);
+  --shadow-pop: 0 20px 56px -16px rgb(0 0 0 / .85);
+
+  --display: "Literata Variable", "Literata", Georgia, serif;  /* fonts are bundled (src/styles/fonts.ts): no CDN */
+  --sans: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --r-2xl: 24px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; border-color: rgb(var(--c-border)); }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+html, body { margin: 0; }
+body { background: rgb(var(--c-bg)); color: rgb(var(--c-ink)); font: 400 15px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { text-wrap: balance; letter-spacing: -0.01em; }
+a { color: rgb(var(--c-brand)); text-underline-offset: 3px; }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+button { font: inherit; cursor: pointer; color: inherit; }
+::placeholder { color: rgb(var(--c-ink-3)); }
+::selection { background: rgb(var(--c-highlight)); color: rgb(var(--c-on-highlight)); }
+:where(a, button, input, select, summary, [tabindex]):focus-visible {
+  outline: none; box-shadow: 0 0 0 2px rgb(var(--c-bg)), 0 0 0 4px rgb(var(--c-brand)); border-radius: 8px;
+}
+.muted { color: rgb(var(--c-ink-3)); }
+.tnum { font-variant-numeric: tabular-nums; }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sr-only:focus { position: fixed; left: 16px; top: 16px; width: auto; height: auto; clip: auto; z-index: 99; background: rgb(var(--c-brand)); color: rgb(var(--c-on-brand)); padding: 8px 14px; border-radius: 10px; }
+@supports (scrollbar-width: thin) { * { scrollbar-width: thin; scrollbar-color: rgb(var(--c-border-strong)) transparent; } }
+
+/* icons (inline Lucide paths, see src/components/Icon.tsx) */
+.ic { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.ic.sm { width: 14px; height: 14px; }
+.ic.lg { width: 22px; height: 22px; stroke-width: 1.2; }
+/* the flow arrow inside text (src/components/Arrow.tsx): text-sized, on the baseline, a step quieter */
+.flow { display: inline-block; width: 1em; height: 1em; vertical-align: -0.14em; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
+
+/* ---------- primitives --------------------------------------------------- */
+
+.card { background: rgb(var(--c-surface)); border: 1px solid rgb(var(--c-border)); border-radius: var(--r-2xl); box-shadow: var(--shadow-card); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px;
+  border-radius: var(--r-lg); border: 1px solid rgb(var(--c-control)); background: rgb(var(--c-surface)); color: rgb(var(--c-ink));
+  font: 500 14px var(--sans); white-space: nowrap; text-decoration: none; box-shadow: var(--shadow-xs);
+  transition: background-color .15s, border-color .15s, color .15s, transform .15s;
+}
+.btn:hover { background: rgb(var(--c-surface-2)); border-color: rgb(var(--c-brand)); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: rgb(var(--c-brand)); border-color: rgb(var(--c-brand)); color: rgb(var(--c-on-brand)); }
+.btn.primary:hover { background: rgb(var(--c-brand-hover)); border-color: rgb(var(--c-brand-hover)); }
+.btn.danger { background: rgb(var(--c-danger)); border-color: rgb(var(--c-danger)); color: rgb(var(--c-surface)); }
+.btn.wide { width: 100%; }
+.btn.lg { height: 48px; padding: 0 24px; font-size: 15px; border-radius: var(--r-xl); }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.btn:disabled:hover { background: rgb(var(--c-surface)); border-color: rgb(var(--c-control)); }
+
+.badge, .pill, .stamp {
+  display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; border: 1px solid rgb(var(--c-border));
+  background: rgb(var(--c-surface-2)); color: rgb(var(--c-ink-2)); padding: 2px 10px; font: 500 11.5px/1.5 var(--sans); letter-spacing: .01em; white-space: nowrap;
+}
+.pill.red, .stamp, .badge.danger { background: rgb(var(--c-danger-soft)); color: rgb(var(--c-danger)); border-color: rgb(var(--c-danger) / .25); }
+.pill.amber, .stamp.ochre, .badge.gold { background: rgb(var(--c-highlight) / .14); color: rgb(var(--c-highlight)); border-color: rgb(var(--c-highlight) / .3); }
+.pill.green, .stamp.green, .badge.ok { background: rgb(var(--c-ok-soft)); color: rgb(var(--c-ok)); border-color: rgb(var(--c-ok) / .25); }
+.pill.blue, .badge.blue, .stamp.blue { background: rgb(var(--c-brand-soft)); color: rgb(var(--c-brand)); border-color: rgb(var(--c-brand) / .25); }
+.stamp::before, .badge.live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.chip { border: 1px solid rgb(var(--c-border-strong)); background: rgb(var(--c-surface)); border-radius: 999px; padding: 5px 12px; font: 500 12.5px var(--sans); color: rgb(var(--c-ink-2)); transition: background-color .15s, color .15s, border-color .15s; }
+.chip:hover { background: rgb(var(--c-surface-2)); color: rgb(var(--c-ink)); border-color: rgb(var(--c-control)); }
+
+select, input {
+  font: 400 14px var(--sans); color: rgb(var(--c-ink)); background: rgb(var(--c-surface)); border: 1px solid rgb(var(--c-control));
+  border-radius: var(--r-lg); height: 40px; padding: 0 12px; outline: none; min-width: 0; transition: border-color .15s, box-shadow .15s;
+}
+select:focus, input:focus { border-color: rgb(var(--c-brand)); box-shadow: 0 0 0 3px rgb(var(--c-brand) / .2); }
+
+.logo-mark { width: 32px; height: 32px; flex: none; }
+.logo-mark { --ring: #6EA8FF; }
+.logo-mark .tint-stroke { stroke: var(--ring); }
+.logo-mark .tint-fill { fill: var(--ring); }
+
+@keyframes fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
