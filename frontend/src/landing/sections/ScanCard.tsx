@@ -54,7 +54,7 @@ export function ScanCard({ state, onScan, onReset }: { state: ScanState; onScan:
         <ScanError state={state} onRetry={() => scan(repo)} onExample={(r) => scan(r)} />
       )}
 
-      <p className="scan-limits muted"><Icon name="lock" size="sm" />Free demo limits: public repos only, up to 3,000 packages,
+      <p className="scan-limits muted"><Icon name="lock" size="sm" />Chokepoint's free-tier limits here: public repos only, up to 3,000 packages,
         one scan at a time. It stores the graph and npm usernames, never emails.</p>
     </div>
   );

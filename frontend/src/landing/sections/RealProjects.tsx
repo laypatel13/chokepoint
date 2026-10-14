@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../../components/Icon";
+import { NightjarBird } from "../../components/NightjarBird";
 import { get, post } from "../../lib/api";
 import { grow, motionOn } from "../../lib/motion";
 import type { Chokepoints, GraphStats, Project } from "../../lib/types";
@@ -83,9 +84,10 @@ export function RealProjects() {
 
         <aside className="broke reveal">
           <span className="broke-emoji" aria-hidden="true">🫠</span>
-          <p><b>Honest note: I'm broke.</b> This demo runs on free-tier servers and a free API key, so if you're lucky,
+          <p><b>Honest note: I'm broke.</b> This app runs on free-tier servers and a free API key, so if you're lucky,
             you'll catch it working. Want to see it actually work? <a href="#cli">Try the CLI on your own machine</a>:
-            no limits, no waiting, nothing leaves your laptop.</p>
+            no limits, no waiting, nothing leaves your laptop, and you get access to our agent birdy,{" "}
+            <a href="#nightjar" className="birdy">Nightjar<NightjarBird state="watching" px={1.5} label="Nightjar, the watcher agent" /></a></p>
         </aside>
       </div>
     </section>

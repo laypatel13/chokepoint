@@ -77,7 +77,9 @@ test.describe("story page", () => {
     await cli.scrollIntoViewIfNeeded();
     await expect(cli.locator(".term")).toContainText("pipx install --python 3.12 ckpoint");
     await expect(cli.locator(".term")).toContainText("chokepoint nightjar");
-    await expect(page.locator(".broke a")).toHaveAttribute("href", "#cli");
+    await expect(page.locator(".broke a").first()).toHaveAttribute("href", "#cli");
+    await expect(page.locator(".broke a.birdy")).toHaveAttribute("href", "#nightjar");  // the note introduces the bird
+    await expect(page.locator(".broke")).toContainText("This app runs on free-tier servers");
   });
 
   test("every section is consistent: centred icons, alternating backgrounds, aligned examples", async ({ page }) => {
