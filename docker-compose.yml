@@ -1,0 +1,27 @@
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    ports:
+      - "6379:6379"   # graph (Redis protocol)
+      - "3000:3000"   # FalkorDB Browser: http://localhost:3000
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+      interval: 2s
+      retries: 30
+
+  app:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: "6379"
+      CHOKEPOINT_CACHE: /app/.cache/http
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./.cache:/app/.cache   # reuse npm/OSV responses between runs
+    depends_on:
+      falkordb:
+        condition: service_healthy

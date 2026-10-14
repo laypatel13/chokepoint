@@ -1,0 +1,43 @@
+# Every push and pull request: Python tests, frontend checks, and the browser tests against the
+# real server (both modes: the hosted site and `chokepoint map`).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv venv && uv pip install -e ".[dev]"
+      - run: uv run pytest -q
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv venv .venv && uv pip install --python .venv -e .
+        working-directory: .
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run check            # types, lint, unit tests
+      - run: npm run build            # into backend/web, served by FastAPI
+      - run: npm run e2e              # real Chrome against the real server (seeds its own test data)
+        env:
+          E2E_DATA: ${{ runner.temp }}/chokepoint-e2e
