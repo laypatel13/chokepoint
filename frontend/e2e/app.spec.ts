@@ -116,8 +116,10 @@ test.describe("the Sept 8 replay", () => {
     await expect(page.locator("#panel-chokepoint")).toContainText("Nightjar: ALERT");
     await expect(page.locator("#panel-chokepoint")).toContainText("chalk@5.6.1");
     await expect(page.locator("#panel-scanner")).toContainText("Nothing yet");
-    const card = answer(page).locator(".nj-alert");
-    await expect(card).toContainText("chalk@5.6.1");
+    const card = answer(page).locator(".nj-loop");  // watch → investigate → decide → act → remember
+    await expect(card.locator(".lbl")).toHaveText(["Watch", "Investigate", "Decide", "Act", "Remember"]);
+    await expect(card).toContainText("chalk@5.6.1 published by @qix at 13:13:05 UTC");
+    await expect(card).toContainText("saved as an Alert and a Decision in FalkorDB");
     await expect(card).toContainText("burst: 3 releases from @qix in 54s");
     await expect(card).toContainText("pin chalk to 5.4.1");
     await expect(card.locator("code", { hasText: "npm ci" })).toBeVisible();  // backticks render as code
@@ -210,6 +212,20 @@ test.describe("questions on a project", () => {
     await page.locator("#ask button").click();
     // remembered only after a `chokepoint replay nightjar` run; a fresh install says how to get one
     await expect(answer(page)).toContainText(/Nightjar remembers \d+ flagged|chokepoint replay nightjar runs it/);
+    await expectSidebarFits(page);
+  });
+
+  test("the agent takes a second step only when the graph says so, and shows it", async ({ page }) => {
+    await openReplay(page);
+    await page.getByRole("button", { name: "is debug@4.4.1 in my app and what do I pin?" }).click();
+    const trace = answer(page).locator(".agent-trace");
+    await expect(trace.locator(".step code")).toHaveText(["explain_path", "safe_version"]);
+    await expect(trace).toContainText("debug@4.4.1 is installed, so find the version to pin");
+    await expect(answer(page).locator(".step-card")).toContainText("PIN debug@");
+    await page.locator("#question").fill("is debug@4.4.2 in my app and what do I pin?");
+    await page.locator("#ask button").click();
+    await expect(trace.locator(".stop")).toContainText("debug@4.4.2 isn't installed, so there is nothing to pin.");
+    await expect(trace.locator(".step code")).toHaveText(["explain_path"]);
     await expectSidebarFits(page);
   });
 

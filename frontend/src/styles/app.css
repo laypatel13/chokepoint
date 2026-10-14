@@ -100,9 +100,6 @@ pre.code { background: rgb(var(--c-bg)); color: rgb(var(--c-ink-2)); border: 1px
 .cmd { font: 400 12px var(--mono); background: rgb(var(--c-surface-2)); border: 1px solid rgb(var(--c-border)); border-radius: 8px; padding: 2px 8px; color: rgb(var(--c-ink)); cursor: copy; }
 .cmd:hover { border-color: rgb(var(--c-border-strong)); }
 /* Nightjar's log in the replay (src/app/answers/NightjarLog.tsx) */
-.nj-alert { background: rgb(var(--c-brand-soft)); border: 1px solid rgb(var(--c-brand) / .3); border-radius: var(--r-lg); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
-.nj-alert ul { margin: 0; padding-left: 18px; font-size: 13px; color: rgb(var(--c-ink-2)); }
-.nj-alert .act { font-size: 13px; }
 
 /* lists that fit the sidebar: the package on top, its detail (range -> pinned, status) underneath */
 ul.req { list-style: none; margin: 0; padding: 0; }
@@ -290,3 +287,32 @@ ul.req { list-style: none; margin: 0; padding: 0; }
 .nj-who .bird-alert, .nightjar-head .bird-alert { animation: nj-hop .5s var(--ease) 2; transform-origin: 50% 100%; }
 @keyframes nj-hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-5px); } }
 @media (prefers-reduced-motion: reduce) { .nj-bird { animation: none !important; } }
+
+/* the agent's steps (Ask): what it called through MCP, why, and when it stopped */
+.agent-trace { list-style: none; margin: 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px;
+  border: 1px solid rgb(var(--c-brand) / .25); background: rgb(var(--c-brand) / .06); border-radius: var(--r-lg); }
+.agent-trace .step { display: grid; grid-template-columns: 22px 1fr; gap: 10px; }
+.agent-trace .n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 600 11px var(--mono);
+  background: rgb(var(--c-brand) / .18); color: rgb(var(--c-brand)); }
+.agent-trace .stop .n { background: rgb(var(--c-surface-3)); color: rgb(var(--c-ink-2)); font-size: 9px; }
+.agent-trace .head { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: baseline; }
+.agent-trace code { font-size: 12px; color: rgb(var(--c-ink)); }
+.agent-trace .why { font: 400 12px/1.5 var(--sans); color: rgb(var(--c-ink-3)); }
+.agent-trace p { margin: 3px 0 0; font-size: 12.5px; line-height: 1.5; color: rgb(var(--c-ink-2)); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }  /* the full answer is right below */
+.step-card { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px dashed rgb(var(--c-border)); }
+.step-label { font: 500 12px var(--sans); color: rgb(var(--c-ink-3)); }
+.ask-try { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: -4px; font-size: 12px; }
+.ask-try .chip { font-size: 11.5px; }
+
+/* Nightjar's loop for one alert: watch → investigate → decide → act → remember */
+.nj-loop { list-style: none; margin: 0; padding: 4px 0 4px 24px; position: relative; display: flex; flex-direction: column; gap: 10px; }
+.nj-loop::before { content: ""; position: absolute; left: 5px; top: 10px; bottom: 10px; width: 2px; border-radius: 2px;
+  background: linear-gradient(rgb(var(--c-brand)), rgb(var(--c-danger)) 50%, rgb(var(--c-ok))); opacity: .55; }
+.nj-loop li { position: relative; display: grid; grid-template-columns: 92px 1fr; gap: 10px; font-size: 13px; line-height: 1.5; }
+.nj-loop li::before { content: ""; position: absolute; left: -24px; top: 6px; width: 8px; height: 8px; border-radius: 50%;
+  background: rgb(var(--c-surface)); border: 2px solid rgb(var(--c-brand)); }
+.nj-loop .lbl { font: 600 11px/1.9 var(--sans); letter-spacing: .04em; text-transform: uppercase; color: rgb(var(--c-ink-3)); }
+.nj-loop .body { color: rgb(var(--c-ink-2)); overflow-wrap: anywhere; }
+.nj-loop .body b { color: rgb(var(--c-ink)); font-weight: 600; }
+.nj-loop .pill { margin-right: 4px; }

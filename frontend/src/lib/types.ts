@@ -168,6 +168,8 @@ export interface NightjarEvent {
   level: "INFO" | "WATCH" | "ALERT" | "CONFIRMED";
   reasons: string[];
   action: string;
+  /** Points from Nightjar's rules (the level follows from them). */
+  score?: number;
   advisory?: string;
 }
 
@@ -193,6 +195,19 @@ export interface AskResult {
   routed_by?: "llm" | "rules";
   tools_offered?: string[];
   cached?: boolean;
+  /** What the agent did, in order: the first tool answers; a second runs only if that answer calls for it. */
+  steps?: AgentStep[];
+  /** Why the agent stopped after one step although the question asked for more. */
+  stopped?: string | null;
+}
+
+export interface AgentStep {
+  tool: string;
+  args: Record<string, unknown>;
+  summary: string;
+  why: string;
+  /** The second step's own result (the first step's is AskResult.result). */
+  result?: ToolResult;
 }
 
 export interface FixPreview {

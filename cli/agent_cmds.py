@@ -236,6 +236,13 @@ def ask(
         R.as_json(r)
         return
     R.out.print(escape(r["answer"]))
+    steps = r.get("steps") or []
+    if len(steps) > 1 or r.get("stopped"):  # the agent's loop: what it did after seeing the first answer
+        R.out.print("\n[bold]What the agent did[/]")
+        for i, st in enumerate(steps, 1):
+            R.out.print(f"  [cyan]{i}.[/] [bold]{escape(st['tool'])}[/] [dim]· {escape(st['why'])}[/]")
+        if r.get("stopped"):
+            R.out.print(f"  [dim]■ stopped: {escape(r['stopped'])}[/]")
     picked = "picked by the LLM" if r["routed_by"] == "llm" else "picked by keyword rules (no LLM)"
     R.out.print(f"\n[dim]tool [bold]{r['tool']}[/bold] via MCP ({r['transport']}) · {picked} · "
                 f"{'worded by ' + (llm.model() or '') if r['mode'] == 'llm' else 'template answer'} · {r['ms']} ms[/]")

@@ -34,3 +34,22 @@ def test_investigate_and_recall():
     assert route("any alerts?") == ("recall", {})
     assert route("what happened on Sept 8?") == ("incident", {})
     assert route("who could poison my app?") == ("chokepoints", {})
+
+
+
+def test_follow_up_only_fixes_what_is_there():
+    from chokepoint.agent.router import follow_up, stop_reason
+    q = "is debug@4.4.1 in my app and what do I pin?"
+    assert route(q) == ("explain_path", {"key": "debug@4.4.1"})  # check first
+    assert follow_up(q, "explain_path", {"key": "debug@4.4.1", "affected": True})[:2] == ("safe_version", {"key": "debug@4.4.1"})
+    assert follow_up(q, "explain_path", {"key": "debug@4.4.2", "affected": False}) is None  # not installed: stop
+    assert "nothing to pin" in stop_reason(q, "explain_path", {"key": "debug@4.4.2", "affected": False})
+    saved = {"name": "chalk", "bad": "5.6.1", "verdict": "saved_by_lockfile"}
+    assert follow_up("would a fresh install take chalk@5.6.1? what do I pin?", "lockfile_saved_you", saved)[:2] == ("safe_version", {"key": "chalk@5.6.1"})
+    assert follow_up("is debug@4.4.1 in my app?", "explain_path", {"key": "debug@4.4.1", "affected": True}) is None  # no fix asked
+
+
+
+def test_llm_latex_arrows_become_plain_arrows():
+    from chokepoint.agent.mcp_agent import _plain
+    assert _plain("app $\\rightarrow$ spdy@4.0.2 \\to debug") == "app → spdy@4.0.2 → debug"

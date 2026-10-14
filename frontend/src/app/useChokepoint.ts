@@ -4,7 +4,7 @@
 // moment) -> every later question replaces the answer, lights up the graph and lists its Cypher.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { enc, get, post } from "../lib/api";
-import type { AskResult, Config, CypherRun, GraphStats, GraphView, Highlight, Project, ToolResult } from "../lib/types";
+import type { AgentStep, AskResult, Config, CypherRun, GraphStats, GraphView, Highlight, Project, ToolResult } from "../lib/types";
 import { describe, type Problem } from "./errors";
 import type { View } from "./graph/elements";
 import { answerAt, loadReplay, type ReplayData } from "./replay/model";
@@ -19,6 +19,8 @@ export interface AnswerMeta {
   via?: "mcp";
   routed_by?: "llm" | "rules";
   tools_offered?: string[];
+  steps?: AgentStep[];
+  stopped?: string | null;
 }
 
 export type AnswerState =

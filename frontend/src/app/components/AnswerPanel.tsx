@@ -4,6 +4,7 @@ import type { Incident, Project } from "../../lib/types";
 import { AnswerCard } from "../answers";
 import { ActionsContext, type AnswerActions } from "../answers/actions";
 import type { AnswerState } from "../useChokepoint";
+import { AgentTrace } from "./AgentTrace";
 import { FixPreview } from "./FixPreview";
 import { withArrows } from "../../components/Arrow";
 import { Icon } from "../../components/Icon";
@@ -69,7 +70,14 @@ export function AnswerPanel({ answer, project, local, run, check }: {
           {meta.ms !== undefined && <span>{meta.ms} ms</span>}
           {meta.llm_error && <span className="pill amber" title={meta.llm_error}>LLM unavailable: answered without it</span>}
         </div>
+        {meta.steps && <AgentTrace steps={meta.steps} stopped={meta.stopped} picked={meta.routed_by} />}
         <AnswerCard tool={tool} result={result} asOf={(result as Incident).asOf} />
+        {meta.steps?.slice(1).map((s, i) => s.result && (
+          <div className="step-card" key={i}>
+            <div className="step-label">Step {i + 2} · <code>{s.tool}</code></div>
+            <AnswerCard tool={s.tool} result={s.result} />
+          </div>
+        ))}
         <div id="pr">{fixKey && <FixPreview key={fixKey} fixKey={fixKey} project={project} local={local} />}</div>
       </section>
     </ActionsContext.Provider>

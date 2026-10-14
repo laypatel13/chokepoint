@@ -16,12 +16,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from typing import Any
 
 from chokepoint.agent import llm, prompts
 from chokepoint.agent.loop import _for_llm
-from chokepoint.agent.router import route
+from chokepoint.agent.router import follow_up, route, stop_reason
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +54,14 @@ def _result_json(res) -> dict:
         if text:
             return json.loads(text)
     raise ValueError("empty tool result")
+
+
+# Small local models sometimes write arrows as LaTeX ($\rightarrow$, \to). The answer is plain text.
+_LATEX_ARROW = re.compile(r"\$?\\(?:rightarrow|to|longrightarrow|Rightarrow)\$?")
+
+
+def _plain(text: str) -> str:
+    return _LATEX_ARROW.sub("→", text).strip()
 
 
 def _server_params():
@@ -113,21 +122,37 @@ async def ask_async(project: str, question: str, stdio: bool = False) -> dict[st
             out["routed_by"] = "rules"
             result = await call(tool, args)
 
+        # Look at what the graph returned, then decide whether one more step is needed (at most one).
+        steps = [{"tool": tool, "args": args, "summary": result.get("summary", ""), "why": "answer the question"}]
+        nxt = follow_up(question, tool, result)
+        if nxt:
+            tool2, args2, why = nxt
+            try:
+                second = await call(tool2, args2)
+                steps.append({"tool": tool2, "args": args2, "summary": second.get("summary", ""), "why": why, "result": second})
+            except Exception as e:  # the first answer still stands
+                log.warning("follow-up %s failed: %s", tool2, e)
+        out["steps"] = steps
+        out["stopped"] = None if nxt else stop_reason(question, tool, result)
+
     answer = None
     if client and out["llm_error"] is None:
         try:
             r = client.chat.completions.create(
                 model=llm.model(),
                 messages=[{"role": "system", "content": prompts.SYSTEM_EXPLAIN},
-                          {"role": "user", "content": f"Question: {question}\nTool: {tool}\nTool result JSON: {_for_llm(result)}"}],
-                temperature=0, max_tokens=220, **llm.extra())
-            answer = (r.choices[0].message.content or "").strip() or None
+                          {"role": "user", "content": f"Question: {question}\n" + "\n".join(
+                              f"Step {i}: tool {s['tool']}\nTool result JSON: {_for_llm(s.get('result', result))}"
+                              for i, s in enumerate(steps, 1))}],
+                temperature=0, max_tokens=280, **llm.extra())
+            answer = _plain(r.choices[0].message.content or "") or None
             if answer:
                 out["mode"] = "llm"
         except Exception as e:
             out["llm_error"] = f"{type(e).__name__}: {e}"[:200]
 
-    out.update(tool=tool, args=args, answer=answer or result.get("summary", ""), result=result,
+    plain = " ".join(s["summary"] for s in steps) + (f" {out['stopped']}" if out.get("stopped") else "")
+    out.update(tool=tool, args=args, answer=answer or plain, result=result,
                ms=round((time.perf_counter() - started) * 1000))
     return out
 
