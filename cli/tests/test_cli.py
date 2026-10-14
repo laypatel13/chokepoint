@@ -1,0 +1,126 @@
+"""CLI tests: an embedded FalkorDB in a temp dir, the small example lockfile, no network (enrich=False)."""
+
+import importlib.util
+import json
+import os
+from pathlib import Path
+
+import pytest
+
+pytestmark = pytest.mark.skipif(importlib.util.find_spec("redislite") is None,
+                                reason="embedded FalkorDB (falkordblite, Python 3.12+) not installed")
+
+LOCK = Path(__file__).resolve().parents[2] / "backend" / "tests" / "fixtures" / "example-app" / "package-lock.json"
+
+
+@pytest.fixture(scope="module")
+def cli(tmp_path_factory):
+    tmp = tmp_path_factory.mktemp("cli")
+    keys = ("CHOKEPOINT_BACKEND", "CHOKEPOINT_DB", "CHOKEPOINT_CACHE")
+    saved = {k: os.environ.get(k) for k in keys}
+    os.environ.update(CHOKEPOINT_BACKEND="embedded", CHOKEPOINT_DB=str(tmp / "graph.db"),
+                      CHOKEPOINT_CACHE=str(tmp / "cache"))
+    from typer.testing import CliRunner
+
+    from chokepoint import projects as P
+    from chokepoint.cli import state
+    from chokepoint.cli.app import app
+    from chokepoint.graph.load import load_project
+
+    state.STATE = tmp / "state.json"
+    project, lock, folder = P.local_project(LOCK.parent)
+    load_project(project, lock, enrich=False)
+    state.remember_project(project, str(folder), state.fingerprint(LOCK))
+    runner = CliRunner()
+    yield lambda *args: runner.invoke(app, list(args))
+    for k, v in saved.items():  # don't leak the embedded backend into the other test modules
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+
+
+def test_local_project_id():
+    from chokepoint import projects as P
+    project, lock, _ = P.local_project(LOCK)
+    assert project == "local:example-app" and len(lock.packages) == 9
+
+
+def test_check_installed_exits_1_with_prod_chain(cli):
+    r = cli("--json", "check", "debug@4.4.2")
+    assert r.exit_code == 1
+    data = json.loads(r.stdout)
+    assert data["affected"] and data["ships_to_prod"]
+    assert data["paths"][0]["chain"] == ["local:example-app", "@babel/core@7.25.2", "debug@4.4.2"]
+
+
+def test_check_not_installed_exits_0(cli):
+    r = cli("--json", "check", "debug@4.4.1")
+    assert r.exit_code == 0 and json.loads(r.stdout)["installed_versions"] == ["4.4.2"]
+
+
+def test_why_lists_every_installed_version(cli):
+    data = json.loads(cli("--json", "why", "semver").stdout)
+    assert {v["key"] for v in data["versions"]} == {"semver@7.6.3", "semver@6.3.1"}
+
+
+def test_human_output_shortens_project_and_hints(cli):
+    r = cli("check", "debug@4.4.2")
+    assert "example-app → @babel/core@7.25.2 → debug@4.4.2" in r.stdout
+    assert "chokepoint fix debug@4.4.2" in r.stdout
+
+
+def test_bad_version_is_a_usage_error(cli):
+    r = cli("check", "debug")
+    assert r.exit_code == 2
+
+
+def test_unknown_project_is_a_usage_error(cli):
+    assert cli("--project", "nope", "who").exit_code == 2
+
+
+# ---- your projects vs the Sept 8 replay: never mixed --------------------------------------
+
+
+def test_outside_a_project_never_falls_back_to_the_replay(cli, tmp_path, monkeypatch):
+    from chokepoint import incident
+    from chokepoint.cli import state
+
+    before = state.load().get("last_project")
+    state.save(last_project=incident.REPLAY_PROJECT)  # e.g. an old state file
+    monkeypatch.chdir(tmp_path)
+    try:
+        r = cli("who")
+        assert r.exit_code == 2 and "chokepoint replay" in r.stderr
+    finally:
+        state.save(last_project=before)
+
+
+def test_inside_the_app_folder_uses_it_without_a_flag(cli, monkeypatch):
+    monkeypatch.chdir(LOCK.parent)
+    r = cli("--json", "check", "debug@4.4.2")
+    assert r.exit_code == 1 and json.loads(r.stdout)["paths"][0]["chain"][0] == "local:example-app"
+
+
+def test_nightjar_refuses_the_replay(cli):
+    from chokepoint import incident
+    r = cli("--project", incident.REPLAY_PROJECT, "nightjar", "--once")
+    assert r.exit_code == 2 and "chokepoint replay nightjar" in r.stderr
+
+
+def test_nightjar_needs_a_project_folder(cli, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    r = cli("nightjar", "--once")
+    assert r.exit_code == 2 and "package-lock.json" in r.stderr
+
+
+def test_same_package_name_in_two_folders_gets_two_ids(cli, tmp_path):
+    from chokepoint.cli import state
+    assert state.unique_id("local:example-app", LOCK.parent) == "local:example-app"
+    other = state.unique_id("local:example-app", tmp_path)
+    assert other.startswith("local:example-app-") and other != "local:example-app"
+
+
+def test_use_refuses_the_replay(cli):
+    from chokepoint import incident
+    assert cli("use", incident.REPLAY_PROJECT).exit_code == 2
