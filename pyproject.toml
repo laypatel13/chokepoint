@@ -1,0 +1,60 @@
+[project]
+name = "ckpoint"  # the PyPI name (`chokepoint` is taken there); the command is `chokepoint`
+version = "0.1.0"
+description = "Who can poison your app? Maps every npm account that can publish code into your project, watches their releases, and acts before any advisory exists. Runs locally on an embedded FalkorDB graph."
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = ["npm", "supply-chain", "security", "falkordb", "graph", "mcp", "agent"]
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+  "falkordb>=1.0",
+  "httpx>=0.27",
+  "node-semver>=0.9",
+  "mcp>=2.3",
+  "openai>=1.40",
+  "python-dotenv>=1.0",
+  # terminal
+  "typer>=0.12",
+  "rich>=13",
+  "platformdirs>=4",
+  "keyring>=25",
+  # `chokepoint map`: the app, served on 127.0.0.1
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  # embedded FalkorDB, no Docker needed (Python 3.12+; on 3.11 the CLI uses a FalkorDB server)
+  "falkordblite>=0.10; python_version >= '3.12'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+# kept for the Dockerfile; fastapi + uvicorn are core now (`chokepoint map` serves the app locally)
+web = []
+
+[project.scripts]
+chokepoint = "chokepoint.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# Three folders, one Python package: backend/ is `chokepoint` (graph, tools, agent, Nightjar, API,
+# MCP server), cli/ is `chokepoint.cli` (the terminal commands), frontend/ is the web UI (npm).
+[tool.setuptools]
+package-dir = { "chokepoint" = "backend", "chokepoint.cli" = "cli" }
+packages = [
+  "chokepoint", "chokepoint.actions", "chokepoint.agent", "chokepoint.api", "chokepoint.graph",
+  "chokepoint.ingest", "chokepoint.watch", "chokepoint.cli",
+]
+
+[tool.setuptools.package-data]
+# the built UI (frontend/ -> npm run build); not in git, built in CI before packaging
+chokepoint = ["web/*", "web/assets/*", "watch/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests", "cli/tests"]
