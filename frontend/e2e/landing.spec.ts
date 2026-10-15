@@ -215,3 +215,16 @@ test.describe("scan a public repo", () => {
     await expect(page.locator("#scan-btn")).toBeEnabled();
   });
 });
+
+test.describe("404", () => {
+  test("an unknown page shows the 404 page; an unknown API path stays JSON", async ({ page, request }) => {
+    const res = await page.goto("/no/such/page");
+    expect(res?.status()).toBe(404);
+    await expect(page.locator("h1")).toHaveText("Nothing to watch here.");
+    await expect(page.locator(".nf-text code")).toHaveText("/no/such/page");
+    await expect(page.getByRole("link", { name: "Back to the story" })).toHaveAttribute("href", "/");
+    const api = await request.get("/api/no-such-thing");
+    expect(api.status()).toBe(404);
+    expect(await api.json()).toHaveProperty("detail");
+  });
+});

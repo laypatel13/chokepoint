@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
-// Two pages, one build: the story page (landing.html) and the app (app.html).
+// Three pages, one build: the story page (landing.html), the app (app.html) and the 404 page (notfound.html).
 // The output goes into the Python package (backend/web), where FastAPI serves it, so
 // `pip install ckpoint` ships the UI and `chokepoint map` works offline.
 // `npm run dev` proxies /api to a backend on :8000 (uvicorn chokepoint.api.app:app).
@@ -17,6 +17,7 @@ export default defineConfig({
       input: {
         landing: resolve(import.meta.dirname, "landing.html"),
         app: resolve(import.meta.dirname, "app.html"),
+        notfound: resolve(import.meta.dirname, "notfound.html"),
       },
       output: {
         // Stable, readable chunks: libraries change rarely, so browsers keep them cached.

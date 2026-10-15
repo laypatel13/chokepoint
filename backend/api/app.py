@@ -311,6 +311,15 @@ def _page(name: str) -> FileResponse:
     return FileResponse(page)
 
 
+@app.exception_handler(404)
+async def _not_found(request: Request, exc):
+    """Unknown pages get the 404 page (Nightjar asleep, two links back); unknown /api/ paths stay JSON."""
+    from fastapi.responses import JSONResponse
+    if request.url.path.startswith("/api/") or not (WEB / "notfound.html").is_file():
+        return JSONResponse({"detail": getattr(exc, "detail", "Not found")}, status_code=404)
+    return FileResponse(WEB / "notfound.html", status_code=404)
+
+
 @app.get("/")
 def landing():
     return _page("app.html" if LOCAL else "landing.html")
