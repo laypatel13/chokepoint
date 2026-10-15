@@ -415,6 +415,7 @@ def _drill(w, project: str, folder: Path | None, act: bool) -> None:
     """`nightjar --drill`: the real Sept 8 releases, fed to the live loop at a watchable pace."""
     pkg = folder / "package.json" if folder else None
     before = json.loads(pkg.read_text()).get("overrides", {}) if pkg and pkg.is_file() else {}
+    run(w.start_drill)
     releases = run(w.sept8_drill)
     _banner("watching", ["[bold red]FIRE DRILL[/] · [bold]Nightjar[/] vs the real Sept 8, 2025 releases",
                          f"[dim]your app: {escape(project)}[/]",

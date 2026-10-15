@@ -156,7 +156,7 @@ def chokepoints(r: dict, limit: int) -> None:
         top3 = ", ".join("@" + a for a in r["top3"]["accounts"])
         out.print(f"[bold]Together, {top3} reach {r['top3']['reach']} of your {total} direct dependencies.[/]")
     if any(x.get("dormant") for x in rows):
-        out.print("[dim]quiet YYYY: last released a package here in YYYY (2+ years ago) but can still publish.[/]")
+        out.print("[dim]quiet <year>: hasn't released anything here since that year, but can still publish.[/]")
     if any(x.get("tied_with") for x in rows):
         out.print("[dim]+N tied: other accounts that can publish exactly the same packages.[/]")
     order = "production reach, then reach" if r.get("by") == "prod" else "reach"

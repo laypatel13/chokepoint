@@ -182,8 +182,9 @@ def home() -> None:
     known = state.project_for_folder(lockfile.parent) if lockfile else None
     if known and state.lock_hash_of(known) == state.fingerprint(lockfile) and known in {p["repo"] for p in run(T.list_projects)}:
         s = run(T.graph_stats, known)
-        top = run(T.chokepoints, known, top_n=1)
-        lead = top["ranking"][0] if top.get("ranking") else None
+        top = run(T.chokepoints, known, top_n=10)
+        people = [r for r in top.get("ranking", []) if not r.get("bot")]  # a bot account isn't who people worry about
+        lead = people[0] if people else (top["ranking"][0] if top.get("ranking") else None)
         here = [f"[bold]{escape(known)}[/] · {s['nodes'].get('Version', 0):,} versions · {s['direct']['direct']} direct dependencies",
                 f"[dim]riskiest account:[/] [yellow]@{escape(lead['maintainer'])}[/] reaches {lead['reach']} of {s['direct']['direct']}"
                 if lead else "[dim]no maintainer data yet[/]"]

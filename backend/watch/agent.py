@@ -84,7 +84,8 @@ class Watcher:
         saved = T.lockfile_saved_you(self.project, key)
         accepting = [q for q in saved["requirements"] if q["status"] == "saved_by_lockfile"]
         try:
-            focus = T.chokepoints(self.project, maintainer=nv.publisher, when="now")["focus_row"] or {}
+            # a drill is Sept 8 again: who could publish what *then* (each version's own maintainer list)
+            focus = T.chokepoints(self.project, maintainer=nv.publisher, when="at_install" if self.drill else "now")["focus_row"] or {}
         except T.ToolError:  # the publisher maintains nothing else in this project
             focus = {}
         maintainers = T.package_maintainers(self.project, nv.name)
@@ -166,6 +167,11 @@ class Watcher:
         return [NewVersion(name=e["name"], version=e["bad"], publisher=sept8.ACCOUNT, at=e["published"], previous=None,
                            new_install_script=None, maintainers=[], provenance=False, provenance_before=None)
                 for e in sorted(events, key=lambda e: e["published"])]
+
+    def start_drill(self) -> None:
+        """Each drill starts fresh: notes from earlier drills would count as "already alerted" history."""
+        self.memory.clear_replay()
+        self.recent = []
 
     def drill_release(self, nv: NewVersion) -> Event:
         return self._handle(nv)
