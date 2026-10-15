@@ -345,12 +345,22 @@ cp .env.example .env
 | `LLM_REASONING_EFFORT` | `none` turns off "thinking" on local models (2× faster). Leave empty for providers that reject it |
 | `GITHUB_TOKEN`, `GITHUB_DEMO_REPO` | fine-grained token scoped to **our demo fork only**. Unset = PR preview only |
 
-## Rate-limit armor
+## Hosted-site armour (free tier, free LLM key)
 
-- Hero buttons call tools directly: the core demo makes **zero** LLM calls.
-- Answers cached per (project, question).
-- Any LLM error (429, timeout, bad tool call) → rules router + the tool's own templated summary. The UI never shows an error screen for LLM failures.
-- Max 2 LLM calls per question; the LLM sees tool JSON only and is told to build on the graph-verified `summary`.
+The public site runs on a free server with a free LLM key, so it defends itself (`backend/api/limits.py`):
+
+- **Per-visitor rate limits** on every action (questions, graph tools, scans, PRs). The visitor's address is the
+  one our host's proxy saw, not a header the visitor can fake.
+- **Global caps:** 20 new graph builds per hour (one at a time), 10 new sandbox PRs per day, and an LLM budget per
+  minute. Past it, answers use keyword rules: same tools, same graph, plainer wording, never an error.
+- **Bounded work:** at most 6 graph-heavy requests at once (then a polite "busy"), at most 64 open connections
+  (`uvicorn --limit-concurrency`), a 20 s LLM timeout, 64 KB request bodies, and a length cap on every input.
+  The Sept 8 replay is computed once and cached; scan jobs and question caches are capped.
+- **Fix PRs** open only on our sandbox fork, only for the replay project, only after a two-step click, and a
+  re-click updates the same PR. The token is scoped to that one fork.
+- Nothing visitor-typed can create a graph except a scan; Nightjar's memory API exists only in `chokepoint map`.
+- Hero buttons call tools directly (zero LLM calls), answers are cached per question, and any LLM failure falls back
+  to the rules router and the tool's own summary.
 
 ## Data sources and policy
 
@@ -375,3 +385,7 @@ cp .env.example .env
 ## Roadmap
 
 PyPI support · GitHub Action that comments chokepoints on PRs · alerts when a new publisher appears on a package you depend on · yarn/pnpm lockfiles.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

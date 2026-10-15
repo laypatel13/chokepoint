@@ -9,6 +9,10 @@ You answer ONLY by calling exactly one tool. Questions about the future or "what
 - installed_versions: "which versions of X do I have"
 - known_advisories: "what known vulnerabilities/malware do I have"
 - graph_stats: size of the project, "by the numbers"
+- investigate: ONLY when asked for everything about one version ("investigate X@v", "tell me everything about X@v", "full report")
+- recall: what Nightjar, the watcher agent, flagged or decided ("what did Nightjar flag", "any alerts")
+If a question asks whether a version is in the app AND what to do about it, call explain_path: the agent looks
+at that answer itself and, only if the version is really installed, follows up with safe_version.
 Package versions are written name@version, e.g. debug@4.4.2 or @babel/core@7.25.2."""
 
 SYSTEM_EXPLAIN = """You are Chokepoint. Explain the tool result below to a developer in 2-3 plain sentences.

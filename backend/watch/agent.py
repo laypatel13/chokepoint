@@ -23,7 +23,7 @@ from chokepoint.ingest import osv
 from chokepoint.watch import brief as B
 from chokepoint.watch.feed import Feed, NewVersion
 from chokepoint.watch.memory import Memory
-from chokepoint.watch.signals import BURST_WINDOW_S, Release, action_for, score
+from chokepoint.watch.signals import BURST_WINDOW_S, Release, action_for, pin_for, score
 
 
 @dataclass
@@ -47,6 +47,7 @@ class Watcher:
     webhook: str | None = None
     cooldown_hours: int = 72
     use_llm: bool = True              # the LLM investigates ALERTs when one is configured; rules decide either way
+    drill: bool = False               # fire drill: real Sept 8 releases fed into this live loop (see sept8_drill)
     recent: list[tuple[str, datetime]] = field(default_factory=list)  # (publisher, seen at) for bursts
 
     def __post_init__(self):
@@ -68,7 +69,7 @@ class Watcher:
         return events, self.feed.stats
 
     def _handle(self, nv: NewVersion) -> Event:
-        now = datetime.now(timezone.utc)
+        now = datetime.fromisoformat(nv.at.replace("Z", "+00:00")) if self.drill else datetime.now(timezone.utc)
         self.recent = [(p, t) for p, t in self.recent if (now - t).total_seconds() <= BURST_WINDOW_S]
         # A CI identity like "GitHub Actions" publishes for thousands of unrelated packages, so for
         # trusted publishing the actor is that package's own pipeline, not the shared CI account.
@@ -84,7 +85,10 @@ class Watcher:
         except T.ToolError:  # the publisher maintains nothing else in this project
             focus = {}
         maintainers = T.package_maintainers(self.project, nv.name)
-        mal = [i for i in osv.query_versions([(nv.name, nv.version)]).get((nv.name, nv.version), []) if i.startswith("MAL-")]
+        # In a drill it is 13:12 on Sept 8 again: today's advisories didn't exist yet, and today's maintainer
+        # lists (after the cleanup) would wrongly call @qix an outsider. Both are left out, never guessed.
+        mal = [] if self.drill else [
+            i for i in osv.query_versions([(nv.name, nv.version)]).get((nv.name, nv.version), []) if i.startswith("MAL-")]
 
         r = Release(
             name=nv.name, version=nv.version, publisher=nv.publisher, at=nv.at,
@@ -94,22 +98,23 @@ class Watcher:
             reach=focus.get("reach"), reach_rank=focus.get("rank"), direct_total=self.direct,
             burst=len(burst), burst_seconds=int((burst[-1] - burst[0]).total_seconds()),
             new_install_script=nv.new_install_script,
-            outside_maintainers=(nv.publisher not in maintainers) if maintainers and not nv.trusted_publisher else None,
+            outside_maintainers=(nv.publisher not in maintainers) if maintainers and not nv.trusted_publisher and not self.drill else None,
             trusted_publisher=nv.trusted_publisher,
             provenance_dropped=bool(nv.provenance_before and not nv.provenance),
-            prior_alerts=0 if nv.trusted_publisher else self.memory.prior_alerts(nv.publisher),
+            prior_alerts=0 if nv.trusted_publisher else self.memory.prior_alerts(nv.publisher, replay=self.drill),
             advisory=mal[0] if mal else None,
         )
         level, pts, why = score(r)
         ev = Event(r, level, pts, why, action_for(level, r))
-        aid = self.memory.save_alert(r, level, pts, why)
+        aid = self.memory.save_alert(r, level, pts, why, replay=self.drill)  # drill memories stay apart from real ones
         if level != "INFO":
             ev.acted = self._act(r, level)
-            self.memory.decide(aid, ev.acted or ("quarantine" if level in ("ALERT", "CONFIRMED") else "hold"), ev.action)
+            self.memory.decide(aid, ev.acted or ("quarantine" if level in ("ALERT", "CONFIRMED") else "hold"), ev.action,
+                               replay=self.drill)
         if level in ("ALERT", "CONFIRMED"):
             ev.brief = B.write(self.project, r, level, ev.action, use_llm=self.use_llm)
             self.memory.set_brief(aid, ev.brief["text"], ev.brief["by"])
-            self._notify(f"{level} · {key} by @{r.publisher}", ev.brief["text"])
+            self._notify(f"{'DRILL · ' if self.drill else ''}{level} · {key} by @{r.publisher}", ev.brief["text"])
         elif level == "WATCH":
             self.memory.set_brief(aid, B.template(r, level, ev.action), "template")
         return ev
@@ -140,6 +145,21 @@ class Watcher:
                 out.append(ev)
         return out
 
+    # ---- fire drill ----------------------------------------------------------------------
+
+    def sept8_drill(self) -> list[NewVersion]:
+        """The real poisoned releases of Sept 8, 2025 whose packages this project uses, in publish order,
+        as the npm feed would have delivered them (publisher @qix, npm's real publish times). Fed to
+        _handle, they go through exactly the live path: graph checks, rules, act, remember."""
+        from chokepoint import incident as sept8
+        events = [e for e in T.incident(self.project)["events"] if e["published"]]
+        return [NewVersion(name=e["name"], version=e["bad"], publisher=sept8.ACCOUNT, at=e["published"], previous=None,
+                           new_install_script=None, maintainers=[], provenance=False, provenance_before=None)
+                for e in sorted(events, key=lambda e: e["published"])]
+
+    def drill_release(self, nv: NewVersion) -> Event:
+        return self._handle(nv)
+
     # ---- actions ------------------------------------------------------------------------
 
     def _act(self, r: Release, level: str) -> str | None:
@@ -149,10 +169,12 @@ class Watcher:
         if not pkg.is_file():
             return None
         data = json.loads(pkg.read_text())
-        pin = max(r.pinned, key=lambda v: [int(x) if x.isdigit() else 0 for x in v.split("-")[0].split(".")])
-        data["overrides"] = {**(data.get("overrides") or {}), r.name: pin}
+        pin = pin_for(r)
+        if not pin:
+            return None
+        data["overrides"] = {**(data.get("overrides") or {}), T.override_key(r.name, r.version): pin}
         pkg.write_text(json.dumps(data, indent=2) + "\n")
-        return f"pinned {r.name} to {pin} in package.json (overrides)"
+        return f"pinned {r.name}@{r.version} to {pin} in package.json (overrides; other versions untouched)"
 
     def _notify(self, title: str, body: str) -> None:
         if self.webhook:

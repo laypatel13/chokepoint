@@ -67,11 +67,17 @@ function OpenPr({ preview, project, fixKey }: { preview: Preview; project?: stri
   };
   return (
     <>
-      <div className="row">
-        <button className="btn danger" id="open-pr" disabled={!preview.can_open || busy} onClick={open}>
-          {armed ? `Confirm: open PR on ${preview.target_repo}` : `Open PR${preview.target_repo ? ` on ${preview.target_repo}` : ""}`}
-        </button>
-        {!preview.can_open && <span className="muted">Set GITHUB_TOKEN + GITHUB_DEMO_REPO in .env to enable</span>}
+      <div className="pr-actions">
+        {preview.target_repo && preview.can_open && (
+          <div className="pr-target muted">on <code>{preview.target_repo}</code>, our sandbox fork</div>
+        )}
+        <div className="pr-buttons">
+          <button className="btn danger" id="open-pr" disabled={!preview.can_open || busy} onClick={open}>
+            {busy ? "Opening…" : armed ? "Confirm: open the PR" : "Open PR"}
+          </button>
+          {armed && !busy && !result.pr && <button className="btn" onClick={() => setArmed(false)}>Cancel</button>}
+        </div>
+        {!preview.can_open && <p className="muted pr-why">{preview.why_not ?? "Opening PRs is switched off on this server."}</p>}
       </div>
       <div id="pr-result">
         {result.pr && <a href={result.pr.url} target="_blank" rel="noopener">PR #{result.pr.number} {result.pr.existing ? "(already open)" : "opened"} <Arrow /></a>}

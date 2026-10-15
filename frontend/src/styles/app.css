@@ -84,6 +84,13 @@ table.rank .why span { display: block; white-space: nowrap; text-align: right; l
 pre.code { background: rgb(var(--c-bg)); color: rgb(var(--c-ink-2)); border: 1px solid rgb(var(--c-border)); border-radius: var(--r-lg); padding: 12px 14px; font: 400 12px/1.7 var(--mono); overflow: auto; margin: 0; white-space: pre-wrap; }
 .pr { background: rgb(var(--c-bg)); border: 1px solid rgb(var(--c-border)); border-radius: var(--r-xl); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .pr .title { font: 500 13px var(--mono); }
+.pr .title, .pr code { overflow-wrap: anywhere; }
+.pr-actions { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pr-target { font-size: 12px; overflow-wrap: anywhere; }
+.pr-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.pr-buttons .btn { white-space: normal; text-align: center; }
+.pr-buttons #open-pr { flex: 1 1 auto; }
+.pr-why { margin: 0; font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 /* `chokepoint map` (local mode): Nightjar's memory under the answer, and copyable commands. */

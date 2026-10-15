@@ -97,8 +97,9 @@ def installed_versions(project: str, name: str) -> dict:
 def investigate(project: str, key: str) -> dict:
     """Everything about one version (key = name@version, e.g. debug@4.4.2) in one call: is it in the
     project and through which chain, does it ship to production, would a fresh install pull it, which
-    version to pin instead, and which npm accounts can publish the package. Use for "tell me everything
-    about X", "investigate X", or when one question needs several of the other tools."""
+    version to pin instead, and which npm accounts can publish the package. Use only for "tell me
+    everything about X", "investigate X" or "full report"; for "is X in my app (and what do I pin)"
+    use explain_path."""
     return _clean(T.investigate(project, key))
 
 

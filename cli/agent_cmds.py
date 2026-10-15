@@ -318,6 +318,45 @@ def _watch_target() -> tuple[str, Path | None, Path | None]:
     return ensure_local(lockfile), lockfile.parent, lockfile
 
 
+def _show_event(ev) -> None:
+    """One release as Nightjar handled it: verdict, why, what it did (or would do), its brief."""
+    _event_line(ev.release.at, ev.level, ev.release.key, ev.reasons[0])
+    for reason in ev.reasons[1:4]:
+        R.out.print(f"{INDENT}[dim]· {escape(reason)}[/]")
+    if ev.level != "INFO":
+        R.out.print(f"{INDENT}{'[bold green]✓ acted:[/] ' if ev.acted else '[cyan]→[/] '}{escape(ev.acted or ev.action)}")
+    _brief(ev.brief)
+
+
+def _drill(w, project: str, folder: Path | None, act: bool) -> None:
+    """`nightjar --drill`: the real Sept 8 releases, fed to the live loop at a watchable pace."""
+    pkg = folder / "package.json" if folder else None
+    before = json.loads(pkg.read_text()).get("overrides", {}) if pkg and pkg.is_file() else {}
+    releases = run(w.sept8_drill)
+    _banner("watching", ["[bold red]FIRE DRILL[/] · [bold]Nightjar[/] vs the real Sept 8, 2025 releases",
+                         f"[dim]your app: {escape(project)}[/]",
+                         "[dim]npm's real publish order and times; nothing is published anywhere[/]",
+                         "[dim]it's 13:12 again: today's advisories are ignored, they didn't exist yet[/]",
+                         f"[dim]{'acts on ALERT: pins what your lockfile has' if act and folder else 'reports only · add --act to let it pin'}[/]"])
+    R.out.print()
+    if not releases:
+        R.out.print("[green]✓[/] None of the Sept 8 packages are in this app, so there is nothing for Nightjar to catch.")
+        return
+    for nv in releases:
+        _show_event(run(w.drill_release, nv))
+        time.sleep(0.6)
+    after = json.loads(pkg.read_text()).get("overrides", {}) if pkg and pkg.is_file() else {}
+    added = {k: v for k, v in after.items() if before.get(k) != v}
+    R.out.print()
+    if added:
+        _banner("calm", [f"[bold]Nightjar acted:[/] package.json now pins {', '.join(f'{k} {v}' for k, v in added.items())}",
+                         "[dim]under \"overrides\", the versions your lockfile already had. Undo it with git if you like.[/]",
+                         "[dim]its decisions are remembered (as drill notes): chokepoint recall --drill[/]"])
+    else:
+        _banner("alert", ["[bold]Nightjar would have raised the alarm[/] (above).",
+                          "[dim]Run it with --act to let it pin the versions you already have.[/]"])
+
+
 def nightjar(
     interval: Optional[int] = typer.Option(None, help="Seconds between checks (default 60)."),
     once: bool = typer.Option(False, "--once", help="Run one check and exit (for cron or CI). Exit code 1 on ALERT/CONFIRMED."),
@@ -326,6 +365,8 @@ def nightjar(
     use_llm: bool = typer.Option(True, "--llm/--no-llm", help="Let your LLM investigate alerts (if one is set up)."),
     install: bool = typer.Option(False, "--install", help="Keep Nightjar running in the background for this project, started at login."),
     uninstall: bool = typer.Option(False, "--uninstall", help="Stop the background Nightjar for this project."),
+    drill: bool = typer.Option(False, "--drill", help="Fire drill: feed the real Sept 8, 2025 releases into Nightjar's live loop "
+                               "against this app, to see it decide (and with --act, pin). Nothing is published anywhere."),
 ) -> None:
     """Nightjar, the watcher agent, guards the app you're in: new npm releases of your packages, investigated in the graph, decided by rules, briefed, remembered."""
     from chokepoint.cli.app import build
@@ -351,7 +392,10 @@ def nightjar(
         return
     settings = C.load().get("watch", {})
     w = run(Watcher, project, Path(DATA_DIR), folder=folder, act=act, notify=notify, use_llm=use_llm,
-            webhook=settings.get("webhook") or None, cooldown_hours=int(settings.get("cooldown_hours") or 72))
+            webhook=settings.get("webhook") or None, cooldown_hours=int(settings.get("cooldown_hours") or 72), drill=drill)
+    if drill:
+        _drill(w, project, folder, act)
+        return
     every = interval or int(settings.get("interval") or 60)
     if act and not folder:
         R.out.print("[yellow]--act needs a project scanned from a local folder; alerts will only be reported.[/]")
@@ -373,12 +417,7 @@ def nightjar(
                 R.out.print(f"[dim]{datetime.now(timezone.utc):%H:%M:%S}  baseline: recorded {stats['baseline']} packages "
                             "(the first check only learns what exists)[/]")
             for ev in events:
-                _event_line(ev.release.at, ev.level, ev.release.key, ev.reasons[0])
-                for reason in ev.reasons[1:4]:
-                    R.out.print(f"{INDENT}[dim]· {escape(reason)}[/]")
-                if ev.level != "INFO":
-                    R.out.print(f"{INDENT}[cyan]→ {escape(ev.acted or ev.action)}[/]")
-                _brief(ev.brief)
+                _show_event(ev)
                 if ev.level in ("ALERT", "CONFIRMED"):
                     worst = ev.level
             if not events and not stats.get("baseline"):
@@ -439,12 +478,15 @@ def replay_nightjar(
     R.hint("chokepoint replay recall", "chokepoint replay who -a qix", "cd <your app> && chokepoint nightjar")
 
 
-def recall(limit: int = typer.Option(20, "--limit", "-n")) -> None:
+def recall(
+    limit: int = typer.Option(20, "--limit", "-n"),
+    drill: bool = typer.Option(False, "--drill", help="Include what Nightjar noted during fire drills (kept apart from real alerts)."),
+) -> None:
     """What Nightjar noticed, decided and wrote before (agent memory, stored in FalkorDB)."""
     from chokepoint.watch.memory import Memory
 
     project = current_project()
-    rows = run(Memory(project).recall, limit, include_replay=Opts.replay)
+    rows = run(Memory(project).recall, limit, include_replay=Opts.replay or drill)
     if Opts.json:
         R.as_json(rows)
         return

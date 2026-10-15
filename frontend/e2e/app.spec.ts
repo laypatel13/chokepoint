@@ -136,7 +136,7 @@ test.describe("the Sept 8 replay", () => {
     await expect(pr.locator(".title")).toContainText("fix(deps): pin");
     await expect(pr).toContainText("branch");
     await expect(pr.locator("#open-pr")).toBeDisabled();
-    await expect(pr).toContainText("Set GITHUB_TOKEN");
+    await expect(pr).toContainText("Opening PRs is switched off on this server.");  // the test server has no token
   });
 });
 

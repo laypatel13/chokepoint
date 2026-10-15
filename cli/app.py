@@ -487,9 +487,10 @@ def fix(
     if not pkg_path.is_file():
         fail(f"No package.json in {folder}.")
     pkg = json.loads(pkg_path.read_text())
-    pkg["overrides"] = {**(pkg.get("overrides") or {}), r["name"]: r["safe"]}
+    entry = T.override_key(r["name"], r["bad"])
+    pkg["overrides"] = {**(pkg.get("overrides") or {}), entry: r["safe"]}
     pkg_path.write_text(json.dumps(pkg, indent=2) + "\n")
-    R.out.print(f"[green]✓[/] Wrote overrides.{escape(r['name'])} = {escape(r['safe'])} to {escape(str(pkg_path))}. "
+    R.out.print(f"[green]✓[/] Wrote overrides[\"{escape(entry)}\"] = {escape(r['safe'])} to {escape(str(pkg_path))}. "
                 "Run [bold]npm install[/] to refresh the lockfile.")
 
 

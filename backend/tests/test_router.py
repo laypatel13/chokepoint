@@ -53,3 +53,76 @@ def test_follow_up_only_fixes_what_is_there():
 def test_llm_latex_arrows_become_plain_arrows():
     from chokepoint.agent.mcp_agent import _plain
     assert _plain("app $\\rightarrow$ spdy@4.0.2 \\to debug") == "app → spdy@4.0.2 → debug"
+
+
+def test_rate_limits_per_visitor_and_new_pr_cap(monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+    from starlette.requests import Request
+
+    from chokepoint.api import limits
+
+    limits.reset()
+    monkeypatch.setitem(limits.LIMITS, "ask", (2, 60))
+    def req(ip):
+        return Request({"type": "http", "headers": [(b"x-forwarded-for", ip.encode())], "client": ("10.0.0.1", 1)})
+    limits.check(req("1.1.1.1"), "ask")
+    limits.check(req("1.1.1.1"), "ask")
+    with pytest.raises(HTTPException) as e:
+        limits.check(req("1.1.1.1"), "ask")
+    assert e.value.status_code == 429
+    limits.check(req("2.2.2.2"), "ask")  # another visitor has their own budget
+
+    monkeypatch.setattr(limits, "NEW_PRS_PER_DAY", 1)
+    limits.reserve_new_pr()
+    limits.release_new_pr()  # the click found an existing PR: the slot comes back
+    limits.reserve_new_pr()
+    with pytest.raises(HTTPException):
+        limits.reserve_new_pr()
+    limits.reset()
+
+
+def test_hosted_prs_only_for_the_replay(monkeypatch):
+    from chokepoint.api import app as A
+    monkeypatch.setattr(A, "LOCAL", False)
+    monkeypatch.setattr(A.github_pr, "_demo_repo", lambda: ("me/webpack-dev-server", "token"))
+    assert A._why_no_pr("webpack/webpack-dev-server@fa9195c") is None
+    assert "only for the Sept 8 replay" in A._why_no_pr("socketio/socket.io")
+
+
+def test_hosted_armour(monkeypatch):
+    """Attacks on the hosted site: a faked address, a giant body, junk tool args, memory for any name."""
+    from fastapi.testclient import TestClient
+    from starlette.requests import Request
+
+    from chokepoint.api import app as A
+    from chokepoint.api import limits
+
+    monkeypatch.setattr(A, "LOCAL", False)
+    # a visitor can't pick their own address: the proxy's entry (last) counts, not the typed one (first)
+    req = Request({"type": "http", "client": ("10.0.0.9", 1), "headers": [(b"x-forwarded-for", b"6.6.6.6, 203.0.113.7")]})
+    assert limits.visitor(req) == "203.0.113.7"
+    client = TestClient(A.app)
+    huge = client.post("/api/ask", content=b'{"project":"x","question":"' + b"a" * 100_000 + b'"}',
+                       headers={"content-type": "application/json"})
+    assert huge.status_code == 413
+    junk = client.post("/api/tool/explain_path", json={"project": "x", "args": {"key": "a" * 5000}})
+    assert junk.status_code == 422
+    assert client.get("/api/memory", params={"project": "anything-at-all"}).status_code == 404  # would create a graph
+    assert client.get("/api/health").headers["x-frame-options"] == "DENY"
+    assert client.get("/docs").status_code == 404  # no public API explorer on the hosted site
+
+
+def test_heavy_work_is_capped(monkeypatch):
+    import threading
+
+    import pytest
+    from fastapi import HTTPException
+
+    from chokepoint.api import limits
+    monkeypatch.setattr(limits, "_heavy", threading.BoundedSemaphore(1))
+    with limits.heavy():
+        monkeypatch.setattr(limits._heavy, "acquire", lambda timeout: False)  # still busy after waiting
+        with pytest.raises(HTTPException) as e:
+            limits.heavy().__enter__()
+        assert e.value.status_code == 503

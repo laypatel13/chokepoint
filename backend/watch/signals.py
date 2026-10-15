@@ -89,9 +89,20 @@ def score(r: Release) -> tuple[str, int, list[str]]:
     return "INFO", pts, why
 
 
+def _ver(v: str) -> list[int]:
+    return [int(x) if x.isdigit() else 0 for x in v.split("-")[0].split(".")]
+
+
+def pin_for(r: Release) -> str | None:
+    """The version to stay on instead of r.version: what your lockfile already has in the same major
+    (the one a fresh install would replace), never newer than the release itself."""
+    same = [v for v in r.pinned or [] if _ver(v)[:1] == _ver(r.version)[:1] and _ver(v) <= _ver(r.version)]
+    return max(same, key=_ver) if same else None
+
+
 def action_for(level: str, r: Release) -> str:
     """The recommended action, in one line (what --act would do)."""
-    pins = ", ".join(r.pinned) or "the version you have"
+    pins = pin_for(r) or "the version you have"
     return {
         "CONFIRMED": f"pin {r.name} to {pins} (npm overrides) and check whether any install took {r.key}",
         "ALERT": f"quarantine {r.key}: pin {r.name} to {pins} and install only with `npm ci` until it's verified",

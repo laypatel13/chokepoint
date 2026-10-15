@@ -19,4 +19,7 @@ RUN pip install --no-cache-dir .
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 # Seed on boot: the free cloud tier keeps no data, so every start rebuilds the graphs.
-CMD ["sh", "-c", "python backend/scripts/seed.py && uvicorn chokepoint.api.app:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Free-tier armour: a slow LLM can't hold a worker for long, and past 64 open connections the server answers
+# 503 at once instead of queueing until it falls over. Visitor addresses come from limits.visitor().
+ENV LLM_TIMEOUT=20
+CMD ["sh", "-c", "python backend/scripts/seed.py && uvicorn chokepoint.api.app:app --host 0.0.0.0 --port ${PORT:-8000} --limit-concurrency 64 --timeout-keep-alive 5"]

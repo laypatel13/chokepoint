@@ -106,6 +106,7 @@ function CliTerminal() {
       <Cmd bin="chokepoint" args="who" note="who can publish into it" />
       <Cmd bin="chokepoint" args="map" note="the graph, in your browser" />
       <Cmd bin="chokepoint" args="nightjar" note="watch it from now on" />
+      <Cmd bin="chokepoint" args="diff main" note="who your change lets in" />
       <Cmd bin="chokepoint" args="setup" note="optional: your own LLM" />
       <span className="pr">$</span> <span className="cursor" aria-hidden="true" />
     </Window>
@@ -127,6 +128,11 @@ export function CliSection() {
             <li>
               <ITile icon="cpu" tone="ok" />
               <div><b>Bring your own model</b><span>Ollama, LM Studio, your own API key, or no AI at all.</span></div>
+            </li>
+            <li>
+              <ITile icon="pr" tone="ok" />
+              <div><b>Guard your pull requests</b><span><code className="cmd-chip">chokepoint diff origin/main --fail-on risky</code> fails
+                a PR that lets a far-reaching new npm account publish into your app.</span></div>
             </li>
             <li>
               <ITile icon="plug" tone="ok" />

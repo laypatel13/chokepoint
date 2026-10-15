@@ -131,6 +131,12 @@ def list_projects() -> list[dict]:
 # --- Q1: incident triage ------------------------------------------------------
 
 
+def override_key(name: str, bad: str) -> str:
+    """The npm `overrides` key for a fix: `name@bad` replaces only that version. A bare `name` would force
+    every installed copy (say debug 2.6.9 for a package that needs ^2) onto the new major and break it."""
+    return f"{name}@{bad}"
+
+
 def explain_path(project: str, key: str) -> dict[str, Any]:
     """Is this exact version in the project, through which chain(s), and does it ship to prod?"""
     name, version = _require_version(key)
@@ -279,7 +285,7 @@ def safe_version(project: str, key: str) -> dict[str, Any]:
     )
     return {
         "name": name, "bad": bad, "safe": pick, "satisfies_ranges": satisfies_ranges,
-        "ranges": ranges, "override": {"overrides": {name: pick}}, "summary": summary,
+        "ranges": ranges, "override": {"overrides": {override_key(name, bad): pick}}, "summary": summary,
         "highlight": {"red": [f"{name}@{bad}"], "amber": [], "edges": []}, "cypher": t.log,
     }
 

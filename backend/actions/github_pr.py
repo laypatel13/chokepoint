@@ -49,9 +49,9 @@ def _package_json(project: str, folder: str | None = None) -> dict:
     raise PRError(f"couldn't fetch package.json for {project}")
 
 
-def _with_override(pkg: dict, name: str, version: str) -> dict:
+def _with_override(pkg: dict, name: str, bad: str, version: str) -> dict:
     out = dict(pkg)
-    out["overrides"] = {**(pkg.get("overrides") or {}), name: version}
+    out["overrides"] = {**(pkg.get("overrides") or {}), T.override_key(name, bad): version}
     return out
 
 
@@ -73,13 +73,20 @@ def preview(project: str, key: str, folder: str | None = None) -> dict:
         f"Chokepoint found **{name}@{bad}** in this project.\n\n"
         f"### How it gets in\n{chains or '- (not currently installed)'}\n\n"
         + (f"### Advisories\n{advisories}\n\n" if advisories else "")
-        + f"### Fix\nAdds an npm `overrides` entry pinning `{name}` to `{pin}`, the newest version with no "
-        f"known advisory{' that satisfies every declared range' if safe['satisfies_ranges'] else ''}.\n\n"
-        "After merging, run `npm install` to refresh `package-lock.json`, then commit the lockfile.\n\n"
+        + f"### Fix\nAdds an npm `overrides` entry `\"{name}@{bad}\": \"{pin}\"`: wherever npm would install "
+        f"`{name}@{bad}`, it installs `{pin}` instead, the newest version with no known advisory"
+        f"{' that satisfies every declared range' if safe['satisfies_ranges'] else ''}. Other installed versions of "
+        f"`{name}` are left alone.\n\n"
+        "### After merging: refresh the lockfile\n"
+        "This PR changes `package.json` only. `package-lock.json` still lists the old version until npm "
+        "re-resolves it, so run this once and commit the result:\n\n"
+        "```sh\nnpm install --package-lock-only --ignore-scripts\ngit commit -am \"chore(deps): refresh lockfile\"\n```\n\n"
+        f"(`--package-lock-only` rewrites the lockfile without installing anything; `--ignore-scripts` runs no "
+        f"package scripts.) Afterwards the lockfile has `{name}@{pin}` wherever it had `{name}@{bad}`.\n\n"
         "_Opened by Chokepoint after an explicit click. The graph decided the fix; no LLM wrote this diff._"
     )
     before = _package_json(project, folder)
-    after = _with_override(before, name, pin)
+    after = _with_override(before, name, bad, pin)
     demo_repo, token = _demo_repo()
     return {
         "project": project, "key": f"{name}@{bad}", "safe": pin, "title": title, "body": body,
@@ -97,7 +104,7 @@ def open_pr(project: str, key: str) -> dict:
     if not (demo_repo and token):
         raise PRError("GITHUB_TOKEN and GITHUB_DEMO_REPO must be set in .env to open a PR")
     p = preview(project, key)
-    name, pin = p["key"].rpartition("@")[0], p["safe"]
+    name, bad, pin = *p["key"].rsplit("@", 1), p["safe"]
     with httpx.Client(base_url=API, headers=_headers(token), timeout=30) as gh:
         repo = gh.get(f"/repos/{demo_repo}")
         repo.raise_for_status()
@@ -108,8 +115,12 @@ def open_pr(project: str, key: str) -> dict:
             r.raise_for_status()
         current = gh.get(f"/repos/{demo_repo}/contents/package.json", params={"ref": p["branch"]})
         current.raise_for_status()
-        doc = json.loads(base64.b64decode(current.json()["content"]))
-        new = json.dumps(_with_override(doc, name, pin), indent=2) + "\n"
+        # The change is always made against the base branch's package.json, so clicking again updates
+        # an existing PR to the current fix instead of stacking edits on top of an older one.
+        original = gh.get(f"/repos/{demo_repo}/contents/package.json", params={"ref": base})
+        original.raise_for_status()
+        doc = json.loads(base64.b64decode(original.json()["content"]))
+        new = json.dumps(_with_override(doc, name, bad, pin), indent=2) + "\n"
         gh.put(f"/repos/{demo_repo}/contents/package.json", json={
             "message": p["title"], "branch": p["branch"], "sha": current.json()["sha"],
             "content": base64.b64encode(new.encode()).decode(),
@@ -119,7 +130,9 @@ def open_pr(project: str, key: str) -> dict:
         if pr.status_code == 422:
             existing = gh.get(f"/repos/{demo_repo}/pulls",
                               params={"head": f"{demo_repo.split('/')[0]}:{p['branch']}", "state": "open"}).json()
-            if existing:
-                return {"url": existing[0]["html_url"], "number": existing[0]["number"], "existing": True}
+            if existing:  # same fix clicked again: bring its title and description up to date too
+                number = existing[0]["number"]
+                gh.patch(f"/repos/{demo_repo}/pulls/{number}", json={"title": p["title"], "body": p["body"]}).raise_for_status()
+                return {"url": existing[0]["html_url"], "number": number, "existing": True}
         pr.raise_for_status()
         return {"url": pr.json()["html_url"], "number": pr.json()["number"], "existing": False}

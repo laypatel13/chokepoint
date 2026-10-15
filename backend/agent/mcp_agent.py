@@ -74,7 +74,7 @@ def _server_params():
     return StdioServerParameters(command=sys.executable, args=["-m", "chokepoint.mcp_server"], env=dict(os.environ))
 
 
-async def ask_async(project: str, question: str, stdio: bool = False) -> dict[str, Any]:
+async def ask_async(project: str, question: str, stdio: bool = False, use_llm: bool = True) -> dict[str, Any]:
     from mcp.client.client import Client
 
     from chokepoint.mcp_server import mcp as server
@@ -84,7 +84,7 @@ async def ask_async(project: str, question: str, stdio: bool = False) -> dict[st
     started = time.perf_counter()
     out: dict[str, Any] = {"question": question, "mode": "template", "llm_error": None,
                            "transport": "stdio" if stdio else "in-memory", "via": "mcp"}
-    client = llm.client()
+    client = llm.client() if use_llm else None
     async with Client(_server_params() if stdio else server) as mcp_client:
         listed = await mcp_client.list_tools()
         tools = _openai_tools(listed.tools)
@@ -157,5 +157,5 @@ async def ask_async(project: str, question: str, stdio: bool = False) -> dict[st
     return out
 
 
-def ask(project: str, question: str, stdio: bool = False) -> dict[str, Any]:
-    return asyncio.run(ask_async(project, question, stdio=stdio))
+def ask(project: str, question: str, stdio: bool = False, use_llm: bool = True) -> dict[str, Any]:
+    return asyncio.run(ask_async(project, question, stdio=stdio, use_llm=use_llm))

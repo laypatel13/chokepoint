@@ -21,7 +21,7 @@ function server(name: string, port: number, extra: Record<string, string> = {}) 
     timeout: 180_000,
     env: {
       CHOKEPOINT_BACKEND: "embedded", CHOKEPOINT_DB: `${dir}/graph.db`, CHOKEPOINT_DATA_DIR: dir,
-      CHOKEPOINT_CACHE: path.join(repo, ".cache/http"), LLM_BASE_URL: "", LLM_MODEL: "", GITHUB_TOKEN: "", GITHUB_DEMO_REPO: "",
+      CHOKEPOINT_CACHE: path.join(repo, ".cache/http"), LLM_BASE_URL: "", LLM_MODEL: "", GITHUB_TOKEN: "", GITHUB_DEMO_REPO: "", CHOKEPOINT_RATE_LIMITS: "off",
       ...extra,
     },
   };

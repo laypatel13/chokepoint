@@ -64,7 +64,7 @@ def main() -> int:
         check(f"Q2 on {real}", len(r2["ranking"]) > 0, r2["summary"][:110])
 
     pr = httpx.post(f"{BASE}/api/fix/preview", json={"project": REPLAY, "key": "debug@4.4.2"}, timeout=60).json()
-    check("fix PR preview", pr.get("overrides", {}).get("debug") == safe["safe"], pr.get("title", ""))
+    check("fix PR preview", pr.get("overrides", {}).get(pr.get("key", "")) == safe["safe"], pr.get("title", ""))
 
     ask = httpx.post(f"{BASE}/api/ask", json={"project": REPLAY, "question": "Who could poison my app?"}, timeout=120).json()
     check("agent answers", ask.get("tool") == "chokepoints", f"mode={ask.get('mode')} {ask.get('answer', '')[:80]}")

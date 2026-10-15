@@ -216,6 +216,8 @@ export interface FixPreview {
   branch: string;
   overrides: Record<string, string>;
   can_open: boolean;
+  /** Why the PR button is off here (another project, no token, or your own machine). */
+  why_not?: string | null;
   target_repo: string | null;
 }
 

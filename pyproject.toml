@@ -5,6 +5,7 @@ description = "Who can poison your app? Maps every npm account that can publish 
 readme = "README.md"
 requires-python = ">=3.11"
 keywords = ["npm", "supply-chain", "security", "falkordb", "graph", "mcp", "agent"]
+license = { text = "MIT" }
 classifiers = [
   "Environment :: Console",
   "Intended Audience :: Developers",

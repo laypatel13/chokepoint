@@ -28,6 +28,7 @@ DEMO_REPOS = ["mochajs/mocha", "webpack/webpack-dev-server"]
 BUILT_IN = {*DEMO_REPOS, incident.REPLAY_PROJECT}
 
 MAX_LOCKFILE_BYTES = 8_000_000
+MAX_JOBS = 50  # scan jobs kept in memory (status for the scan box)
 MAX_PACKAGES = 3000
 MAX_VISITOR_PROJECTS = 8
 REPO_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}$")
@@ -107,7 +108,8 @@ def scan_status(repo: str) -> dict:
     return _jobs.get(repo) or {"repo": repo, "state": "none"}
 
 
-def start_scan(text: str) -> dict:
+def start_scan(text: str, reserve=None) -> dict:
+    """`reserve`: called just before a new graph build starts (the hosted site's global scan cap)."""
     repo = normalize_repo(text)
     if repo in BUILT_IN:
         return {"repo": repo, "state": "done", "step": "Already loaded"}
@@ -121,9 +123,16 @@ def start_scan(text: str) -> dict:
         if busy:
             raise ScanError(f"Busy scanning {busy['repo']} for someone else. Free tier, one at a time: "
                             "try again in a minute.")
+        if reserve:
+            reserve()
         job = {"repo": repo, "state": "running", "stage": 1, "step": "Fetching package-lock.json from GitHub",
                "started": time.time()}
         _jobs[repo] = job
+        while len(_jobs) > MAX_JOBS:  # remember recent scans only; finished ones go first
+            oldest = min((r for r, j in _jobs.items() if j["state"] != "running"), key=lambda r: _jobs[r]["started"], default=None)
+            if oldest is None:
+                break
+            del _jobs[oldest]
     threading.Thread(target=_run, args=(job,), daemon=True).start()
     return job
 

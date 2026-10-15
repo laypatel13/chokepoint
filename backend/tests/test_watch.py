@@ -84,3 +84,13 @@ def test_replay_alerts_74_minutes_before_the_first_advisory():
     releases = [x for x in r["timeline"] if x["kind"] == "release"]
     assert all(x["publisher"] == "qix" for x in releases)
     assert {x["key"]: x["level"] for x in releases}["supports-color@10.2.1"] == "INFO"  # outside every range
+
+
+def test_act_pins_only_the_bad_version_within_its_major():
+    from chokepoint import tools as T
+    from chokepoint.watch.signals import Release, action_for, pin_for
+    r = Release(name="chalk", version="5.6.1", publisher="qix", at="2025-09-08T13:13:05Z", pinned=["2.4.2", "4.1.2", "5.4.1"])
+    assert pin_for(r) == "5.4.1"  # not 2.4.2 or 4.1.2: those serve other majors and stay as they are
+    assert "pin chalk to 5.4.1" in action_for("ALERT", r)
+    assert T.override_key("chalk", "5.6.1") == "chalk@5.6.1"  # overrides only that version, never every chalk
+    assert pin_for(Release(name="x", version="2.0.0", publisher="p", at="", pinned=["1.9.0"])) is None  # no same-major pin
