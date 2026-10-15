@@ -79,8 +79,8 @@ export function NightjarSection() {
             Optional. With a local model or your own key, it calls Chokepoint's tools through MCP and writes the brief in plain
             words. It never changes the verdict.</Feat>
           <Feat small icon="database" tone="brand" title="Remembers and acts">
-            Alerts and decisions live in FalkorDB. It re-checks them against OSV, notifies you, and with <code>--act</code> pins
-            the version you already have.</Feat>
+            Alerts and decisions live in FalkorDB. It re-checks them against OSV and notifies you. With <code>--act</code> it pins
+            the version you already have; with <code>--pr</code> it opens a fix PR on your own repo, with your own token.</Feat>
         </div>
       </div>
     </section>
