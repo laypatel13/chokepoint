@@ -86,6 +86,29 @@ def test_replay_alerts_74_minutes_before_the_first_advisory():
     assert {x["key"]: x["level"] for x in releases}["supports-color@10.2.1"] == "INFO"  # outside every range
 
 
+def test_website_replay_scores_like_the_cli_replay():
+    """The website runs the replay without memory; it must still reach the CLI's verdicts."""
+    from chokepoint.watch import replay
+    web, cli = replay.run(RP, remember=False), replay.run(RP, remember=True)
+    levels = lambda r: [(x["key"], x["level"], x["score"]) for x in r["timeline"] if x["kind"] == "release"]  # noqa: E731
+    assert levels(web) == levels(cli) and web["lead_minutes"] == cli["lead_minutes"]
+
+
+def test_cache_entries_expire(tmp_path, monkeypatch):
+    import os
+    import time
+
+    from chokepoint.ingest import cache
+    monkeypatch.setattr(cache, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(cache, "FOREVER", False)
+    cache.put("npm", "debug", {"latest": "4.4.1"})
+    assert cache.get("npm", "debug", max_age=60) == {"latest": "4.4.1"}
+    old = time.time() - 120
+    os.utime(cache._path("npm", "debug"), (old, old))
+    assert cache.get("npm", "debug", max_age=60) is None
+    assert cache.get("npm", "debug") == {"latest": "4.4.1"}  # still there as a fallback when npm is down
+
+
 def test_act_pins_only_the_bad_version_within_its_major():
     from chokepoint import tools as T
     from chokepoint.watch.signals import Release, action_for, pin_for

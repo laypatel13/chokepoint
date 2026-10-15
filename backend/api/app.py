@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -213,7 +214,10 @@ def tool(name: str, call: ToolCall, request: Request):
         return _guard(loop.run_tool, call.project, name, call.args)
 
 
-_asked: dict[tuple[str, str], dict] = {}  # rate-limit armor for the hosted site's free LLM key
+# Hosted only: a repeated question within ASKED_TTL seconds reuses its answer (armour for the free LLM key).
+# Never locally, where Nightjar's memory and re-scans change the answer from one minute to the next.
+_asked: dict[tuple[str, str], tuple[float, dict]] = {}
+ASKED_TTL = 600
 
 
 @app.post("/api/ask")
@@ -227,14 +231,16 @@ def ask(body: Ask, request: Request):
     if not question:
         raise HTTPException(400, "empty question")
     key = (body.project, question.lower())
-    if key in _asked:  # a repeated question costs nothing, so it doesn't count against the limit
-        return {**_asked[key], "cached": True}
+    hit = None if LOCAL else _asked.get(key)
+    if hit and time.time() - hit[0] < ASKED_TTL:  # a repeated question costs nothing, so it doesn't count
+        return {**hit[1], "cached": True}
     _limit(request, "ask")
     with _heavy():
         out = _guard(mcp_agent.ask, body.project, question, use_llm=LOCAL or limits.llm_available())
-    if len(_asked) > 256:
-        _asked.clear()
-    _asked[key] = out
+    if not LOCAL:
+        if len(_asked) > 256:
+            _asked.clear()
+        _asked[key] = (time.time(), out)
     return out
 
 

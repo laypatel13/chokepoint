@@ -87,3 +87,18 @@ def test_workspace_links():
     }
     lock = parse_lockfile(data)
     assert edge_keys(lock) == {("ROOT", "web@0.1.0", "prod"), ("web@0.1.0", "left-pad@1.3.0", "prod")}
+
+
+def test_versionless_workspace_deps_are_direct_deps():
+    """A monorepo workspace with no version (apps/web) is part of the app: its deps are your direct deps."""
+    data = {
+        "lockfileVersion": 3,
+        "packages": {
+            "": {"name": "mono", "workspaces": ["apps/*"]},
+            "apps/web": {"name": "web", "dependencies": {"left-pad": "^1.3.0"}, "devDependencies": {"ms": "^2"}},
+            "node_modules/left-pad": {"version": "1.3.0"},
+            "node_modules/ms": {"version": "2.1.3", "dev": True},
+        },
+    }
+    lock = parse_lockfile(data)
+    assert edge_keys(lock) == {("ROOT", "left-pad@1.3.0", "prod"), ("ROOT", "ms@2.1.3", "dev")}

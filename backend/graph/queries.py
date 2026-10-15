@@ -182,15 +182,12 @@ RETURN DISTINCT d.key AS direct, r.dev AS dev, r.range AS range
 ORDER BY direct
 """
 
-# Every installed version that depends on the target, directly or transitively
-# (BFS from every version; keeps the ones whose reachable set contains the target).
+# Every installed version that depends on the target, directly or transitively: one walk backwards
+# from the target, counting each version once (and not the target itself, which a cycle can reach).
 DEPENDENTS_COUNT = """
-MATCH (a:Version)
-CALL algo.BFS(a, -1, 'DEPENDS_ON') YIELD nodes
-WITH a, nodes
-MATCH (v:Version {key: $key})
-WHERE v IN nodes
-RETURN count(a) AS dependents
+MATCH (a:Version)-[:DEPENDS_ON*1..]->(v:Version {key: $key})
+WHERE a <> v
+RETURN count(DISTINCT a) AS dependents
 """
 
 # Is the version present in this (other) project graph? Used across all project graphs.

@@ -64,6 +64,7 @@ def test_rate_limits_per_visitor_and_new_pr_cap(monkeypatch):
 
     limits.reset()
     monkeypatch.setitem(limits.LIMITS, "ask", (2, 60))
+    monkeypatch.setattr(limits, "TRUSTED_PROXIES", 1)  # as on Render: one proxy appends the real address
     def req(ip):
         return Request({"type": "http", "headers": [(b"x-forwarded-for", ip.encode())], "client": ("10.0.0.1", 1)})
     limits.check(req("1.1.1.1"), "ask")
@@ -99,6 +100,7 @@ def test_hosted_armour(monkeypatch):
     from chokepoint.api import limits
 
     monkeypatch.setattr(A, "LOCAL", False)
+    monkeypatch.setattr(limits, "TRUSTED_PROXIES", 1)  # as on Render
     # a visitor can't pick their own address: the proxy's entry (last) counts, not the typed one (first)
     req = Request({"type": "http", "client": ("10.0.0.9", 1), "headers": [(b"x-forwarded-for", b"6.6.6.6, 203.0.113.7")]})
     assert limits.visitor(req) == "203.0.113.7"
@@ -126,3 +128,14 @@ def test_heavy_work_is_capped(monkeypatch):
         with pytest.raises(HTTPException) as e:
             limits.heavy().__enter__()
         assert e.value.status_code == 503
+
+
+def test_no_proxy_ignores_forwarded_for(monkeypatch):
+    """Without a proxy in front, X-Forwarded-For is the visitor's own words: a fresh value per request
+    must not buy a fresh rate-limit budget."""
+    from starlette.requests import Request
+
+    from chokepoint.api import limits
+    monkeypatch.setattr(limits, "TRUSTED_PROXIES", 0)
+    fake = Request({"type": "http", "headers": [(b"x-forwarded-for", b"6.6.6.6")], "client": ("10.0.0.9", 1)})
+    assert limits.visitor(fake) == "10.0.0.9"

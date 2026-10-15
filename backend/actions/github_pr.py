@@ -149,6 +149,8 @@ def open_override_pr(repo: str, token: str, *, name: str, bad: str, pin: str, ti
                 number = existing[0]["number"]
                 gh.patch(f"/repos/{repo}/pulls/{number}", json={"title": title, "body": body}).raise_for_status()
                 return {"url": existing[0]["html_url"], "number": number, "existing": True}
+            msg = "; ".join(e.get("message", "") for e in pr.json().get("errors") or []) or pr.json().get("message", "")
+            raise PRError(f"GitHub wouldn't open the PR on {repo}: {msg or 'unprocessable'}.")
         pr.raise_for_status()
         return {"url": pr.json()["html_url"], "number": pr.json()["number"], "existing": False}
 

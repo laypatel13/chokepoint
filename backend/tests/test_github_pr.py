@@ -41,7 +41,8 @@ class FakeGitHub:
             self.prs.append({**body, "number": len(self.prs) + 1, "html_url": f"https://github.com/me/app/pull/{len(self.prs) + 1}"})
             return httpx.Response(201, json=self.prs[-1])
         if path.endswith("/pulls") and m == "GET":
-            return httpx.Response(200, json=[p for p in self.prs if f"me:{p['head']}" == request.url.params["head"]])
+            return httpx.Response(200, json=[p for p in self.prs if f"me:{p['head']}" == request.url.params["head"]
+                                             and not p.get("closed")])
         if m == "PATCH":
             pr = self.prs[int(path.rsplit("/", 1)[1]) - 1]
             pr.update(body)
@@ -77,3 +78,12 @@ def test_token_checks(github):
     github.push = False
     with pytest.raises(G.PRError, match="not write"):
         G.check_access("me/app", "github_pat_x")
+
+
+def test_a_closed_pr_gives_a_clear_error_not_a_crash(github):
+    """GitHub refuses (422) and no open PR exists to update: a PRError the CLI and API can show."""
+    args = dict(name="chalk", bad="5.6.1", pin="5.3.0", title="t", body="b", branch="fix/chalk")
+    G.open_override_pr("me/app", "token", **args)
+    github.prs[0]["closed"] = True
+    with pytest.raises(G.PRError):
+        G.open_override_pr("me/app", "token", **args)

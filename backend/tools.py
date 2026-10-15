@@ -393,7 +393,8 @@ def chokepoints(project: str, top_n: int = 10, maintainer: str | None = None, wh
     top = list(groups.values())[:top_n]
     top3_via = set().union(*(set(r["via"]) for r in top[:3])) if top else set()
     if not top:
-        return {"when": when, "direct": totals, "ranking": [], "summary": "No maintainer data loaded.",
+        return {"when": when, "by": by, "direct": totals, "ranking": [], "focus": None, "focus_row": None,
+                "summary": "No maintainer data loaded.",
                 "highlight": {"red": [], "amber": [], "edges": []}, "cypher": t.log}
 
     focus = maintainer or top[0]["maintainer"]

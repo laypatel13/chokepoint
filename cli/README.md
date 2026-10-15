@@ -18,6 +18,8 @@
 ## Install
 
 You need **Python 3.12** (for the built-in graph database) and an npm project with a `package-lock.json`.
+On Python 3.11 the CLI still works, but needs a FalkorDB server running (for example with Docker:
+`docker run -p 6379:6379 falkordb/falkordb`), so 3.12 is the easy path.
 
 ```sh
 pipx install --python 3.12 ckpoint

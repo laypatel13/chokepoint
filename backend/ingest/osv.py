@@ -35,12 +35,17 @@ def _severity(vuln: dict) -> str | None:
     return (vuln.get("database_specific") or {}).get("severity")
 
 
-def query_versions(pairs: list[tuple[str, str]]) -> dict[tuple[str, str], list[str]]:
-    """(name, version) -> advisory ids. Cached per pair."""
+# New advisories appear for old versions (that's the whole point of watching), so lookups expire.
+TTL = 3600
+
+
+def query_versions(pairs: list[tuple[str, str]], fresh: bool = False) -> dict[tuple[str, str], list[str]]:
+    """(name, version) -> advisory ids. Cached per pair for TTL seconds; fresh=True always asks OSV
+    (Nightjar, which is waiting for exactly the advisory that didn't exist an hour ago)."""
     out: dict[tuple[str, str], list[str]] = {}
     todo = []
     for pair in pairs:
-        hit = cache.get("osv-q", f"{pair[0]}@{pair[1]}")
+        hit = None if fresh else cache.get("osv-q", f"{pair[0]}@{pair[1]}", max_age=TTL)
         if hit is None:
             todo.append(pair)
         else:

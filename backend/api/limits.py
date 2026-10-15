@@ -36,10 +36,11 @@ _lock = threading.Lock()
 pr_lock = threading.Lock()  # one PR at a time: two quick clicks must not race to create the same branch
 
 
-# How many proxies sit in front of the app (Render, Fly, Railway: one). Each appends the address it saw to
-# X-Forwarded-For, so the trustworthy entry is that many from the END; anything before it is whatever the
-# visitor typed and can't be used to dodge the limits.
-TRUSTED_PROXIES = int(os.getenv("CHOKEPOINT_TRUSTED_PROXIES", "1"))
+# How many proxies sit in front of the app (Render, Fly, Railway: one; the Dockerfile sets 1). Each appends
+# the address it saw to X-Forwarded-For, so the trustworthy entry is that many from the END; anything before
+# it is whatever the visitor typed and can't be used to dodge the limits. With no proxy (0, the default) the
+# header is ignored entirely: it would be the visitor's own words.
+TRUSTED_PROXIES = int(os.getenv("CHOKEPOINT_TRUSTED_PROXIES", "0"))
 
 
 def visitor(request: Request) -> str:

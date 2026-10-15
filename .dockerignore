@@ -1,14 +1,26 @@
+# Secrets never enter the build: .env and every variant of it (the example is the only exception).
 .env
+.env.*
+!.env.example
+# Not needed to build or run the image.
 .venv*
 .cache
 .git
+.github
 .pytest_cache
 **/__pycache__
 *.egg-info
+build
 dist
+docs
 backend/web
+backend/tests
+cli/tests
 frontend/node_modules
 frontend/test-results
 frontend/playwright-report
-backend/tests
-cli/tests
+# private planning notes (never published)
+CHOKEPOINT.md
+CLAUDE.md
+CLI.md
+IMPROVEMENT.md

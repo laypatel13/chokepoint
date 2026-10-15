@@ -22,7 +22,7 @@ def main(target: str, with_local: bool) -> None:
     out = Path(target).resolve()
     out.mkdir(parents=True, exist_ok=True)
     os.environ.update(CHOKEPOINT_BACKEND="embedded", CHOKEPOINT_DB=str(out / "graph.db"),
-                      CHOKEPOINT_DATA_DIR=str(out), CHOKEPOINT_CACHE=str(ROOT / ".cache" / "http"))
+                      CHOKEPOINT_DATA_DIR=str(out), CHOKEPOINT_CACHE=str(ROOT / ".cache" / "http"), CHOKEPOINT_CACHE_FOREVER="1")
 
     from chokepoint import incident
     from chokepoint.cli import state

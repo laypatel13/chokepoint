@@ -45,7 +45,9 @@ def run(project: str, remember: bool = True, brief: bool = False, use_llm: bool 
             ranges_example=f"{acc[0]['range']} from {acc[0]['parent']}" if acc else None,
             pinned=e["pinned"], reach=focus.get("reach"), reach_rank=focus.get("rank"), direct_total=direct,
             burst=len(window), burst_seconds=int((at - window[0]).total_seconds()),
-            prior_alerts=memory.prior_alerts(sept8.ACCOUNT, replay=True) if memory else 0,
+            # without memory (the website), count this run's own ALERTs: same score as the CLI's replay
+            prior_alerts=memory.prior_alerts(sept8.ACCOUNT, replay=True) if memory
+            else sum(t["level"] == "ALERT" for t in timeline),
         )
         level, pts, why = score(r)
         entry = {"at": e["published"], "kind": "release", "key": r.key, "publisher": r.publisher,

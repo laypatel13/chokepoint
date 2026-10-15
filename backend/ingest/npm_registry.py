@@ -40,6 +40,10 @@ class PackageInfo:
         return self.maintainers
 
 
+# npm docs change (new versions, maintainers), so a cached doc is refetched after this long.
+TTL = 6 * 3600
+
+
 def _names(people) -> list[str]:
     if not isinstance(people, list):
         return []
@@ -63,24 +67,27 @@ def _extract(doc: dict) -> dict:
 
 
 async def _fetch(client: httpx.AsyncClient, sem: asyncio.Semaphore, name: str) -> PackageInfo | None:
-    data = cache.get("npm", name)
+    data = cache.get("npm", name, max_age=TTL)
     if data is None:
+        r = None
         async with sem:
             for attempt in range(3):
                 try:
                     r = await client.get(f"{REGISTRY}/{quote(name, safe='@')}")
                     break
                 except httpx.HTTPError:
-                    if attempt == 2:
-                        return None
-                    await asyncio.sleep(1 + attempt)
-        if r.status_code == 404:
+                    if attempt < 2:
+                        await asyncio.sleep(1 + attempt)
+        if r is not None and r.status_code == 404:
             data = {"missing": True}
-        elif r.status_code != 200:
-            return None
-        else:
+            cache.put("npm", name, data)
+        elif r is not None and r.status_code == 200:
             data = _extract(r.json())
-        cache.put("npm", name, data)
+            cache.put("npm", name, data)
+        else:  # npm unreachable or erroring: an older copy beats no answer
+            data = cache.get("npm", name)
+            if data is None:
+                return None
     if data.get("missing"):
         return None
     data["name"] = name

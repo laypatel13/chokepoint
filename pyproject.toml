@@ -28,14 +28,15 @@ dependencies = [
   # `chokepoint map`: the app, served on 127.0.0.1
   "fastapi>=0.115",
   "uvicorn>=0.30",
+  # imported directly (not only through falkordb / fastapi), so declared directly
+  "redis>=5",
+  "pydantic>=2.5",
   # embedded FalkorDB, no Docker needed (Python 3.12+; on 3.11 the CLI uses a FalkorDB server)
   "falkordblite>=0.10; python_version >= '3.12'",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
-# kept for the Dockerfile; fastapi + uvicorn are core now (`chokepoint map` serves the app locally)
-web = []
 
 [project.scripts]
 chokepoint = "chokepoint.cli:main"

@@ -119,8 +119,11 @@ def parse_lockfile(data: dict) -> Lockfile:
     requirers = [ROOT, *(p for p in entries if p != ROOT and not entries[p].get("link"))]
     for parent in requirers:
         e = entries[parent]
+        # A workspace with no version of its own (apps/web in a monorepo) is part of your app, not a package:
+        # what it requires counts as your direct dependency, dev ones included.
+        workspace = parent != ROOT and parent not in packages
         fields = dict(_DEP_FIELDS)
-        if parent == ROOT:
+        if parent == ROOT or workspace:
             fields["devDependencies"] = "dev"
         peer_meta = e.get("peerDependenciesMeta") or {}
         for fld, kind in fields.items():
@@ -133,7 +136,7 @@ def parse_lockfile(data: dict) -> Lockfile:
                     if kind != "optional" and not optional_peer:
                         unresolved.append((parent, dep_name, rng))
                     continue
-                edges.append(DepEdge(parent, child, dep_name, rng, kind))
+                edges.append(DepEdge(ROOT if workspace else parent, child, dep_name, rng, kind))
 
     root = entries[ROOT]
     return Lockfile(

@@ -62,11 +62,13 @@ class Watcher:
     def reload(self) -> None:
         """Re-read the project graph (after a re-scan, when the lockfile changed)."""
         self.direct = T.graph_stats(self.project)["direct"]["direct"]
+        self._reach_memo: dict[str, dict] = {}
 
     # ---- one cycle --------------------------------------------------------------------
 
     def cycle(self) -> tuple[list[Event], dict]:
         names = T.package_names(self.project)
+        self._reach_memo = {}
         events = [self._handle(nv) for nv in self.feed.poll(names)]
         events += self._recheck_open_alerts()
         return events, self.feed.stats
@@ -85,14 +87,14 @@ class Watcher:
         accepting = [q for q in saved["requirements"] if q["status"] == "saved_by_lockfile"]
         try:
             # a drill is Sept 8 again: who could publish what *then* (each version's own maintainer list)
-            focus = T.chokepoints(self.project, maintainer=nv.publisher, when="at_install" if self.drill else "now")["focus_row"] or {}
+            focus = self._reach(nv.publisher)
         except T.ToolError:  # the publisher maintains nothing else in this project
             focus = {}
         maintainers = T.package_maintainers(self.project, nv.name)
         # In a drill it is 13:12 on Sept 8 again: today's advisories didn't exist yet, and today's maintainer
         # lists (after the cleanup) would wrongly call @qix an outsider. Both are left out, never guessed.
         mal = [] if self.drill else [
-            i for i in osv.query_versions([(nv.name, nv.version)]).get((nv.name, nv.version), []) if i.startswith("MAL-")]
+            i for i in osv.query_versions([(nv.name, nv.version)], fresh=True).get((nv.name, nv.version), []) if i.startswith("MAL-")]
 
         r = Release(
             name=nv.name, version=nv.version, publisher=nv.publisher, at=nv.at,
@@ -130,6 +132,15 @@ class Watcher:
             self.memory.set_brief(aid, B.template(r, level, ev.action), "template")
         return ev
 
+    def _reach(self, publisher: str) -> dict:
+        """The publisher's row in the ranking, computed once per cycle: a burst of 18 releases by one
+        account is one ranking, not 18 (the graph doesn't change mid-cycle)."""
+        if publisher not in self._reach_memo:
+            # a drill is Sept 8 again: who could publish what *then* (each version's own maintainer list)
+            row = T.chokepoints(self.project, maintainer=publisher, when="at_install" if self.drill else "now")
+            self._reach_memo[publisher] = row["focus_row"] or {}
+        return self._reach_memo[publisher]
+
     def _recheck_open_alerts(self) -> list[Event]:
         """Quarantined releases get an advisory check every cycle; a MAL- advisory confirms them."""
         out = []
@@ -137,7 +148,7 @@ class Watcher:
         if not open_:
             return out
         pairs = [tuple(a["key"].rsplit("@", 1)) for a in open_]
-        hits = osv.query_versions(pairs)
+        hits = osv.query_versions(pairs, fresh=True)
         now = datetime.now(timezone.utc)
         for a, pair in zip(open_, pairs):
             mal = [i for i in hits.get(pair, []) if i.startswith("MAL-")]
@@ -172,6 +183,7 @@ class Watcher:
         """Each drill starts fresh: notes from earlier drills would count as "already alerted" history."""
         self.memory.clear_replay()
         self.recent = []
+        self._reach_memo = {}
 
     def drill_release(self, nv: NewVersion) -> Event:
         return self._handle(nv)
