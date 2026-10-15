@@ -122,3 +122,14 @@ def apply_llm_env() -> None:
         os.environ.setdefault("LLM_API_KEY", key)
     if llm.get("reasoning_effort"):
         os.environ.setdefault("LLM_REASONING_EFFORT", llm["reasoning_effort"])
+
+
+# ---- GitHub: where Nightjar and `fix --pr` open fix PRs (your repo, your fine-grained token) ----
+
+PRS_PER_DAY = 5  # Nightjar opens at most this many new PRs a day, whatever happens
+
+
+def github() -> tuple[str | None, str | None, str]:
+    """(repo, token, path of package.json in the repo). The token: CHOKEPOINT_GITHUB_TOKEN, else the keychain."""
+    cfg = load().get("github", {})
+    return cfg.get("repo") or None, os.getenv("CHOKEPOINT_GITHUB_TOKEN") or get_key("github"), cfg.get("path") or ""

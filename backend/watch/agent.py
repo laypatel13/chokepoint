@@ -12,6 +12,7 @@ import json
 import platform
 import shutil
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +35,7 @@ class Event:
     reasons: list[str]
     action: str
     acted: str | None = None
+    pr: str | None = None      # the fix PR Nightjar opened on your repo (--pr)
     brief: dict | None = None  # {'text', 'by', 'tools', 'ms', 'error'} for ALERT/CONFIRMED
 
 
@@ -48,6 +50,7 @@ class Watcher:
     cooldown_hours: int = 72
     use_llm: bool = True              # the LLM investigates ALERTs when one is configured; rules decide either way
     drill: bool = False               # fire drill: real Sept 8 releases fed into this live loop (see sept8_drill)
+    open_pr: Callable[..., str] | None = None  # --pr: opens a fix PR on your repo (set up by the CLI); never in a drill
     recent: list[tuple[str, datetime]] = field(default_factory=list)  # (publisher, seen at) for bursts
 
     def __post_init__(self):
@@ -115,6 +118,13 @@ class Watcher:
             ev.brief = B.write(self.project, r, level, ev.action, use_llm=self.use_llm)
             self.memory.set_brief(aid, ev.brief["text"], ev.brief["by"])
             self._notify(f"{'DRILL · ' if self.drill else ''}{level} · {key} by @{r.publisher}", ev.brief["text"])
+            pin = pin_for(r)
+            if self.open_pr and not self.drill and pin:
+                try:
+                    ev.pr = self.open_pr(r, level, why, ev.brief["text"], pin)
+                    self.memory.decide(aid, "opened a fix PR", ev.pr)
+                except Exception as e:  # noqa: BLE001  (GitHub down, token expired: the alert itself still stands)
+                    ev.pr = f"couldn't open the PR: {e}"
         elif level == "WATCH":
             self.memory.set_brief(aid, B.template(r, level, ev.action), "template")
         return ev

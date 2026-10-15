@@ -20,6 +20,7 @@ from chokepoint import projects as P
 from chokepoint import tools as T
 from chokepoint.cli import render as R
 from chokepoint.cli import state
+from chokepoint.actions.github_pr import PRError
 from chokepoint.graph.load import load_project
 
 app = typer.Typer(
@@ -48,8 +49,11 @@ def run(fn, *args, **kwargs):
     """Call a tool; turn its errors into clear messages and exit codes."""
     try:
         return fn(*args, **kwargs)
-    except (T.ToolError, P.ScanError) as e:
+    except (T.ToolError, P.ScanError, PRError) as e:
         fail(str(e), EXIT_USAGE)
+    except httpx.HTTPStatusError as e:  # GitHub or a registry said no
+        fail(f"{e.request.url.host} answered {e.response.status_code} for {e.request.url.path}. "
+             "If it's GitHub: check the token hasn't expired (chokepoint config github).", EXIT_ENV)
     except (ConnectionError, OSError, RuntimeError) as e:
         backend = os.getenv("CHOKEPOINT_BACKEND")
         fail(f"{e} (backend: {backend}). Try `chokepoint doctor`.", EXIT_ENV)
@@ -323,6 +327,34 @@ def check(
         raise typer.Exit(EXIT_FINDING)
 
 
+def _fix_pr(project: str, key: str, yes: bool) -> None:
+    """`fix --pr`: the website's PR button, on your own repo with your own token."""
+    from rich.prompt import Confirm
+
+    from chokepoint.actions import github_pr
+    from chokepoint.cli import config as C
+
+    repo, token, path = C.github()
+    if not (repo and token):
+        fail("To open PRs on your repo, run `chokepoint config github` once (your repo + a fine-grained token).")
+    p = run(github_pr.preview, project, key, state.folder_of(project))
+    name, bad = p["key"].rsplit("@", 1)
+    if not Opts.json:
+        R.out.print(f"[bold]{escape(p['title'])}[/]  [dim]on {escape(repo)} · branch {escape(p['branch'])}[/]")
+        R.out.print(f'[dim]package.json overrides:[/] "{escape(name)}@{escape(bad)}": "{escape(p["safe"])}"')
+    if not yes and (Opts.json or not Confirm.ask(f"Open this PR on {repo}?", default=False)):
+        if Opts.json:
+            fail("--json with --pr needs --yes (no prompt to answer).", EXIT_USAGE)
+        R.out.print("Not opened.")
+        return
+    out = run(github_pr.open_override_pr, repo, token, name=name, bad=bad, pin=p["safe"], title=p["title"],
+              body=p["body"], branch=p["branch"], path=path)
+    if Opts.json:
+        R.as_json(out)
+        return
+    R.out.print(f"[green]✓[/] PR #{out['number']} {'updated' if out['existing'] else 'opened'}: {escape(out['url'])}")
+
+
 @app.command(rich_help_panel="Questions")
 def diff(
     base: str = typer.Argument("HEAD", help="Git ref to compare with: HEAD (your uncommitted change, default), main, origin/main…"),
@@ -401,6 +433,9 @@ def _diff(project: str, old: str) -> dict:
                   key=lambda r: (r["before"] - r["reach"], r["maintainer"]))
     return {"project": project, "direct": now_r["direct"]["direct"], "added": added, "removed": removed, "grew": grew,
             "cypher": now_r.get("cypher", []) + old_r.get("cypher", [])}
+
+
+@app.command(rich_help_panel="Questions")
 def investigate(key: str = typer.Argument(..., help="package@version, e.g. debug@4.4.2")) -> None:
     """Every check on one version at once: in the project? fresh install? fix? who can publish it?"""
     project = current_project()
@@ -466,9 +501,14 @@ def saved(key: str = typer.Argument(..., help="package@version of the bad releas
 def fix(
     key: str = typer.Argument(..., help="package@version to move away from, e.g. debug@4.4.2"),
     write: bool = typer.Option(False, "--write", help="Add the override to this project's package.json."),
+    pr: bool = typer.Option(False, "--pr", help="Open a fix PR on your repo instead (set it up once: chokepoint config github)."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="With --pr: don't ask before opening it."),
 ) -> None:
     """The newest clean version that fits every range, as an npm `overrides` entry."""
     project = current_project()
+    if pr:
+        _fix_pr(project, key, yes)
+        return
     r = run(T.safe_version, project, key)
 
     def show(r):

@@ -161,3 +161,11 @@ def test_cypher_is_coloured_by_token():
     t = cypher_text("MATCH (p:Project) RETURN p")
     styles = {t.plain[s.start:s.end]: str(s.style) for s in t.spans}
     assert styles["MATCH"] == f"bold {VIOLET}" and styles[":Project"] == HIGHLIGHT
+
+
+def test_every_command_the_home_screen_lists_exists(cli):
+    from chokepoint.cli.app import HOME_COMMANDS
+    for cmd, _ in HOME_COMMANDS:
+        name = cmd.split()[1]
+        r = cli(name, "--help")
+        assert r.exit_code == 0, f"`chokepoint {name}` is listed on the home screen but doesn't exist"

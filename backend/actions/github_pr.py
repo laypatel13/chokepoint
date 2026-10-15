@@ -1,8 +1,10 @@
 """Fix PR: pin a bad package with an npm `overrides` entry in package.json.
 
-Safety: PRs are only ever opened on GITHUB_DEMO_REPO (our own fork), with a
-fine-grained token scoped to that repo, and only after an explicit confirm click.
-Without a token everything still works as a preview.
+Two users of the same code:
+- the website opens PRs only on GITHUB_DEMO_REPO (our sandbox fork), after an explicit confirm click;
+- on your machine, `chokepoint fix --pr` and `chokepoint nightjar --pr` open them on YOUR repo, with your own
+  fine-grained token from the OS keychain (`chokepoint config github`).
+Without a token everything still works as a preview. Nothing here ever merges a PR.
 """
 
 from __future__ import annotations
@@ -99,40 +101,90 @@ def preview(project: str, key: str, folder: str | None = None) -> dict:
 
 
 def open_pr(project: str, key: str) -> dict:
-    """Create branch + commit + PR on GITHUB_DEMO_REPO. Call only after user confirmation."""
+    """The website's button: a fix PR on GITHUB_DEMO_REPO (our sandbox fork). Only after a confirm click."""
     demo_repo, token = _demo_repo()
     if not (demo_repo and token):
         raise PRError("GITHUB_TOKEN and GITHUB_DEMO_REPO must be set in .env to open a PR")
     p = preview(project, key)
-    name, bad, pin = *p["key"].rsplit("@", 1), p["safe"]
+    name, bad = p["key"].rsplit("@", 1)
+    return open_override_pr(demo_repo, token, name=name, bad=bad, pin=p["safe"], title=p["title"], body=p["body"],
+                            branch=p["branch"])
+
+
+def open_override_pr(repo: str, token: str, *, name: str, bad: str, pin: str, title: str, body: str, branch: str,
+                     path: str = "") -> dict:
+    """Branch + one commit (the override in package.json) + PR on `repo`, with the caller's token.
+    Used by the website (our sandbox fork), `chokepoint fix --pr` and Nightjar (your own repo).
+
+    The change is always made against the base branch's package.json, so running it again for the same
+    fix updates the existing PR (code, title and description) instead of stacking edits or opening a new one.
+    It never merges anything. `path`: the folder of package.json inside the repo ("" = the root)."""
+    pkg = f"{path.strip('/')}/package.json" if path.strip("/") else "package.json"
     with httpx.Client(base_url=API, headers=_headers(token), timeout=30) as gh:
-        repo = gh.get(f"/repos/{demo_repo}")
-        repo.raise_for_status()
-        base = repo.json()["default_branch"]
-        sha = gh.get(f"/repos/{demo_repo}/git/ref/heads/{base}").json()["object"]["sha"]
-        r = gh.post(f"/repos/{demo_repo}/git/refs", json={"ref": f"refs/heads/{p['branch']}", "sha": sha})
+        info = gh.get(f"/repos/{repo}")
+        if info.status_code in (401, 403, 404):
+            raise PRError(f"GitHub says {info.status_code} for {repo}: check the repo name and that the token can see it.")
+        info.raise_for_status()
+        base = info.json()["default_branch"]
+        sha = gh.get(f"/repos/{repo}/git/ref/heads/{base}").json()["object"]["sha"]
+        r = gh.post(f"/repos/{repo}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": sha})
         if r.status_code not in (201, 422):  # 422 = branch already exists
             r.raise_for_status()
-        current = gh.get(f"/repos/{demo_repo}/contents/package.json", params={"ref": p["branch"]})
+        current = gh.get(f"/repos/{repo}/contents/{pkg}", params={"ref": branch})
+        original = gh.get(f"/repos/{repo}/contents/{pkg}", params={"ref": base})
+        if original.status_code == 404:
+            raise PRError(f"No {pkg} on {repo}'s {base} branch.")
         current.raise_for_status()
-        # The change is always made against the base branch's package.json, so clicking again updates
-        # an existing PR to the current fix instead of stacking edits on top of an older one.
-        original = gh.get(f"/repos/{demo_repo}/contents/package.json", params={"ref": base})
         original.raise_for_status()
         doc = json.loads(base64.b64decode(original.json()["content"]))
         new = json.dumps(_with_override(doc, name, bad, pin), indent=2) + "\n"
-        gh.put(f"/repos/{demo_repo}/contents/package.json", json={
-            "message": p["title"], "branch": p["branch"], "sha": current.json()["sha"],
+        gh.put(f"/repos/{repo}/contents/{pkg}", json={
+            "message": title, "branch": branch, "sha": current.json()["sha"],
             "content": base64.b64encode(new.encode()).decode(),
         }).raise_for_status()
-        pr = gh.post(f"/repos/{demo_repo}/pulls",
-                     json={"title": p["title"], "head": p["branch"], "base": base, "body": p["body"]})
+        pr = gh.post(f"/repos/{repo}/pulls", json={"title": title, "head": branch, "base": base, "body": body})
         if pr.status_code == 422:
-            existing = gh.get(f"/repos/{demo_repo}/pulls",
-                              params={"head": f"{demo_repo.split('/')[0]}:{p['branch']}", "state": "open"}).json()
-            if existing:  # same fix clicked again: bring its title and description up to date too
+            existing = gh.get(f"/repos/{repo}/pulls", params={"head": f"{repo.split('/')[0]}:{branch}", "state": "open"}).json()
+            if existing:  # the same fix again: bring its title and description up to date too
                 number = existing[0]["number"]
-                gh.patch(f"/repos/{demo_repo}/pulls/{number}", json={"title": p["title"], "body": p["body"]}).raise_for_status()
+                gh.patch(f"/repos/{repo}/pulls/{number}", json={"title": title, "body": body}).raise_for_status()
                 return {"url": existing[0]["html_url"], "number": number, "existing": True}
         pr.raise_for_status()
         return {"url": pr.json()["html_url"], "number": pr.json()["number"], "existing": False}
+
+
+def check_access(repo: str, token: str) -> str:
+    """Before saving a user's token: it must be a fine-grained token that can write to `repo`.
+    A classic token (ghp_…) can reach every repo you own, which is far more than Nightjar needs."""
+    if token.startswith(("ghp_", "gho_", "ghu_", "ghs_")):
+        raise PRError("That's a classic token, which can reach every repo you own. Create a fine-grained token "
+                      "for just this repo instead (it starts with github_pat_).")
+    with httpx.Client(base_url=API, headers=_headers(token), timeout=30) as gh:
+        info = gh.get(f"/repos/{repo}")
+        if info.status_code in (401, 403, 404):
+            raise PRError(f"GitHub says {info.status_code} for {repo}: wrong repo name, or the token can't see it.")
+        info.raise_for_status()
+        if not (info.json().get("permissions") or {}).get("push"):
+            raise PRError(f"The token can read {repo} but not write to it: give it Contents and Pull requests "
+                          "(read and write).")
+        return info.json()["default_branch"]
+
+
+def nightjar_pr(project: str, name: str, bad: str, pin: str, level: str, publisher: str, at: str,
+                reasons: list[str], brief: str | None) -> dict:
+    """Title, body and branch for the PR Nightjar opens when it raises an ALERT on your repo."""
+    why = "\n".join(f"- {r}" for r in reasons)
+    body = (
+        f"**Nightjar {level}**: `{name}@{bad}` was published by @{publisher} at {at[11:19]} UTC on {at[:10]}, and "
+        f"a fresh install of this project would take it.\n\n"
+        f"### Why it raised the alarm\n{why}\n\n"
+        + (f"### Nightjar's brief\n{brief}\n\n" if brief else "")
+        + f"### The fix\nAdds `\"{name}@{bad}\": \"{pin}\"` to npm `overrides` in package.json: wherever npm would "
+        f"install `{name}@{bad}`, it keeps `{pin}`, the version your lockfile already has. Other versions of `{name}` "
+        "are left alone. Remove the override once the release is cleared (Nightjar re-checks it against OSV).\n\n"
+        "### After merging: refresh the lockfile\n"
+        "```sh\nnpm install --package-lock-only --ignore-scripts\ngit commit -am \"chore(deps): refresh lockfile\"\n```\n\n"
+        f"_Opened by Nightjar, Chokepoint's watcher agent, for `{project}`. Plain rules decided; nothing was merged._"
+    )
+    return {"title": f"fix(deps): hold {name} at {pin} ({name}@{bad} flagged by Nightjar)", "body": body,
+            "branch": f"nightjar/hold-{name.replace('/', '-').lstrip('@')}-{bad}"}

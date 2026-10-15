@@ -215,6 +215,87 @@ def config_watch(
     R.out.print("Saved.")
 
 
+TOKEN_URL = "https://github.com/settings/personal-access-tokens/new"
+
+
+@config_app.command("github")
+def config_github(
+    repo: Optional[str] = typer.Option(None, "--repo", help="Your repo, owner/name: where fix PRs open."),
+    path: str = typer.Option("", "--path", help="Folder of package.json inside the repo, if it isn't at the root."),
+    token_env: Optional[str] = typer.Option(None, "--token-env", help="Read the token from this environment variable (CI) instead of asking."),
+    remove: bool = typer.Option(False, "--remove", help="Forget the repo and delete the token from the keychain."),
+) -> None:
+    """Let Chokepoint open fix PRs on your own repo (`fix --pr`, `nightjar --pr`) with your fine-grained token."""
+    if remove:
+        C.clear("github")
+        C.delete_key("github")
+        R.out.print("[green]✓[/] Forgot your GitHub repo and token. Nightjar won't open PRs.")
+        return
+    R.out.print(Panel.fit(
+        "[bold]Fix PRs on your own repo[/]\n"
+        "Chokepoint opens a PR that pins the poisoned version (it never merges anything). It needs a\n"
+        "[bold]fine-grained token for just that one repo[/]; it is kept in your OS keychain and sent only to GitHub.\n\n"
+        f"1. Open [cyan]{TOKEN_URL}[/]\n"
+        "2. Repository access: [bold]Only select repositories[/] → your repo\n"
+        "3. Permissions: [bold]Contents[/] and [bold]Pull requests[/] → Read and write (nothing else)\n"
+        "4. Generate, copy, paste below (it starts with github_pat_)", border_style="cyan"))
+    repo = (repo or Prompt.ask("Your repo (owner/name)")).strip().removeprefix("https://github.com/").strip("/")
+    if repo.count("/") != 1:
+        fail("Write the repo as owner/name, e.g. laypatel13/my-app.")
+    token = os.getenv(token_env, "") if token_env else getpass.getpass("Token (hidden as you paste): ").strip()
+    if not token:
+        fail("No token given.")
+    from chokepoint.actions import github_pr
+    with R.err.status(f"Checking the token can write to {repo}…"):
+        base = run(github_pr.check_access, repo, token)
+    C.update("github", repo=repo, path=path.strip("/") or None)
+    if token_env:
+        R.out.print(f"[green]✓[/] {escape(repo)} ({escape(base)}) · the token is read from ${escape(token_env)} each time")
+    elif C.set_key("github", token):
+        R.out.print(f"[green]✓[/] {escape(repo)} ({escape(base)}) · token saved in your OS keychain")
+    else:
+        R.out.print("[yellow]No OS keychain here.[/] Set CHOKEPOINT_GITHUB_TOKEN in your environment instead.")
+    R.hint("chokepoint fix <package>@<version> --pr", "chokepoint nightjar --pr")
+
+
+def _pr_gate() -> None:
+    """At most C.PRS_PER_DAY new PRs a day from this machine, whatever the alerts say."""
+    log = Path(DATA_DIR) / "prs-opened.json"
+    now = time.time()
+    try:
+        recent = [t for t in json.loads(log.read_text()) if now - t < 86_400]
+    except (OSError, ValueError):
+        recent = []
+    if len(recent) >= C.PRS_PER_DAY:
+        raise RuntimeError(f"already opened {C.PRS_PER_DAY} PRs in the last 24 h; holding off (the alert stands)")
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text(json.dumps(recent + [now]))
+
+
+def _acts(edit: bool, pr: bool) -> str:
+    """What Nightjar does on an ALERT, in a few words, for its banner."""
+    if edit and pr:
+        return f"on ALERT: pins in package.json and opens a fix PR on {C.github()[0]}"
+    if pr:
+        return f"on ALERT: opens a fix PR on {C.github()[0]}"
+    return "on ALERT: pins in package.json" if edit else "reports only"
+
+
+def _user_pr_opener(project: str):
+    """For `nightjar --pr`: opens (or updates) a fix PR on your repo when Nightjar raises an ALERT."""
+    from chokepoint.actions import github_pr
+    repo, token, path = C.github()
+    if not (repo and token):
+        fail("Nightjar needs your repo and a token to open PRs: run `chokepoint config github` first.")
+
+    def opener(r, level: str, why: list[str], brief: str, pin: str) -> str:
+        text = github_pr.nightjar_pr(project, r.name, r.version, pin, level, r.publisher, r.at, why, brief)
+        _pr_gate()
+        pr = github_pr.open_override_pr(repo, token, name=r.name, bad=r.version, pin=pin, path=path, **text)
+        return f"PR #{pr['number']} {'updated' if pr['existing'] else 'opened'}: {pr['url']}"
+    return opener
+
+
 # ---------- ask: the agent, tools chosen through MCP ---------------------------------------
 
 
@@ -325,6 +406,8 @@ def _show_event(ev) -> None:
         R.out.print(f"{INDENT}[dim]· {escape(reason)}[/]")
     if ev.level != "INFO":
         R.out.print(f"{INDENT}{'[bold green]✓ acted:[/] ' if ev.acted else '[cyan]→[/] '}{escape(ev.acted or ev.action)}")
+    if getattr(ev, "pr", None):
+        R.out.print(f"{INDENT}{'[bold green]✓ PR:[/]' if ev.pr.startswith('PR #') else '[yellow]![/]'} {escape(ev.pr)}")
     _brief(ev.brief)
 
 
@@ -365,6 +448,8 @@ def nightjar(
     use_llm: bool = typer.Option(True, "--llm/--no-llm", help="Let your LLM investigate alerts (if one is set up)."),
     install: bool = typer.Option(False, "--install", help="Keep Nightjar running in the background for this project, started at login."),
     uninstall: bool = typer.Option(False, "--uninstall", help="Stop the background Nightjar for this project."),
+    pr: bool = typer.Option(False, "--pr", help="On ALERT/CONFIRMED, open a fix PR on your repo (set it up once: "
+                            "chokepoint config github). At most 5 a day; never merges."),
     drill: bool = typer.Option(False, "--drill", help="Fire drill: feed the real Sept 8, 2025 releases into Nightjar's live loop "
                                "against this app, to see it decide (and with --act, pin). Nothing is published anywhere."),
 ) -> None:
@@ -392,8 +477,11 @@ def nightjar(
         return
     settings = C.load().get("watch", {})
     w = run(Watcher, project, Path(DATA_DIR), folder=folder, act=act, notify=notify, use_llm=use_llm,
-            webhook=settings.get("webhook") or None, cooldown_hours=int(settings.get("cooldown_hours") or 72), drill=drill)
+            webhook=settings.get("webhook") or None, cooldown_hours=int(settings.get("cooldown_hours") or 72), drill=drill,
+            open_pr=_user_pr_opener(project) if pr and not drill else None)
     if drill:
+        if pr:
+            R.out.print("[dim]A fire drill never opens real PRs: --pr is ignored here.[/]")
         _drill(w, project, folder, act)
         return
     every = interval or int(settings.get("interval") or 60)
@@ -402,7 +490,7 @@ def nightjar(
     _banner("watching", [f"[bold]{NAME}[/] is watching [bold]{escape(project)}[/]",
                          f"[dim italic]{TAGLINE}[/]", f"[dim]{escape(str(folder))}[/]" if folder else "",
                          f"[dim]{_brain(use_llm)}[/]",
-                         f"[dim]checks npm every {every}s · {'acts on ALERT' if act and folder else 'reports only'} · UTC · Ctrl+C to stop[/]"])
+                         f"[dim]checks npm every {every}s · {_acts(act and bool(folder), pr)} · UTC · Ctrl+C to stop[/]"])
     R.out.print()
     worst = "INFO"
     try:
