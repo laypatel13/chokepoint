@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 40 40" fill="none">
+  <!-- The Pinch: packages and your app, every road squeezed through one account (the yellow diamond).
+       No background; the white parts turn dark on light tab bars so they stay visible. -->
+  <style>
+    .road { stroke: #FFFFFF; stroke-opacity: .55 }
+    .app { fill: #FFFFFF; fill-opacity: .9 }
+    @media (prefers-color-scheme: light) {
+      .road { stroke: #3A3A42; stroke-opacity: .7 }
+      .app { fill: #3A3A42; fill-opacity: 1 }
+    }
+  </style>
+  <g class="road" stroke-width="2.2" stroke-linecap="round">
+    <path d="M10 13 C18 13 19 24 24 24"/><path d="M10 24 H24"/><path d="M10 35 C18 35 19 24 24 24"/>
+    <path d="M38 13 C30 13 29 24 24 24"/><path d="M38 24 H24"/><path d="M38 35 C30 35 29 24 24 24"/>
+  </g>
+  <g fill="#6EA8FF"><circle cx="10" cy="13" r="3.6"/><circle cx="10" cy="24" r="3.6"/><circle cx="10" cy="35" r="3.6"/></g>
+  <g class="app"><circle cx="38" cy="13" r="3"/><circle cx="38" cy="24" r="3"/><circle cx="38" cy="35" r="3"/></g>
+  <rect x="18.7" y="18.7" width="10.6" height="10.6" rx="2.2" fill="#FFDE59" transform="rotate(45 24 24)"/>
+  <circle cx="24" cy="24" r="2" fill="#1C1C1F"/>
+</svg>
