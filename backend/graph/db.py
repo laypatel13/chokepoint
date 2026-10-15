@@ -1,7 +1,8 @@
 """FalkorDB connection. One graph per scanned project, named repo:<project>.
 
 Two backends, same API:
-  server    a FalkorDB server (Docker, self-hosted or FalkorDB Cloud): FALKORDB_HOST / FALKORDB_PORT
+  server    a FalkorDB server (Docker, self-hosted or FalkorDB Cloud): FALKORDB_HOST / FALKORDB_PORT, plus
+            FALKORDB_USERNAME / FALKORDB_PASSWORD when it needs a login (FalkorDB Cloud does)
   embedded  FalkorDBLite, an embedded FalkorDB in this process's own data file (no Docker; Python >= 3.12)
 CHOKEPOINT_BACKEND picks one (default: server). The CLI defaults to embedded.
 """
@@ -36,6 +37,8 @@ def client() -> FalkorDB:
     return FalkorDB(
         host=os.getenv("FALKORDB_HOST", "localhost"),
         port=int(os.getenv("FALKORDB_PORT", "6379")),
+        username=os.getenv("FALKORDB_USERNAME") or None,
+        password=os.getenv("FALKORDB_PASSWORD") or None,
     )
 
 

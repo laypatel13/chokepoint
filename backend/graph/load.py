@@ -68,4 +68,14 @@ def load_project(repo: str, lock: Lockfile, db: FalkorDB | None = None, *, repla
     stats = {"versions": len(versions), "direct": len(direct), "edges": len(transitive)}
     if enrich:
         stats |= enrich_project(g, lock)
+    g.query(Q.MARK_PROJECT_LOADED, {"at": datetime.now(timezone.utc).isoformat()})
     return stats
+
+
+def is_loaded(repo: str, db: FalkorDB | None = None) -> bool:
+    """A complete graph for this project already exists (a load that ran to the end)."""
+    db = db or client()
+    if graph_name(repo) not in db.list_graphs():
+        return False
+    rows = db.select_graph(graph_name(repo)).query(Q.PROJECT_LOADED_AT).result_set
+    return bool(rows and rows[0][0])

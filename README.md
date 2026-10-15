@@ -298,7 +298,7 @@ npm run e2e
 
 | Variable | What it's for |
 |---|---|
-| `FALKORDB_HOST`, `FALKORDB_PORT` | the graph database |
+| `FALKORDB_HOST`, `FALKORDB_PORT` | the graph database (`FALKORDB_USERNAME`, `FALKORDB_PASSWORD` for FalkorDB Cloud) |
 | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | any OpenAI-compatible LLM (Ollama, Groq, Gemini, …). Leave empty: everything still works |
 | `LLM_REASONING_EFFORT` | `none` turns off "thinking" on local models (faster). Leave empty for hosted ones |
 | `GITHUB_TOKEN`, `GITHUB_DEMO_REPO` | the website's PR button: a fine-grained token for **one sandbox fork only** |

@@ -23,6 +23,15 @@ CREATE (:Project {repo: $repo, name: $name, scanned_at: $scanned_at,
                   lockfile_version: $lockfile_version, replay: $replay, as_of: $as_of})
 """
 
+# The last step of a load: a graph without loaded_at is half-built (the load was interrupted).
+MARK_PROJECT_LOADED = """
+MATCH (p:Project) SET p.loaded_at = $at
+"""
+
+PROJECT_LOADED_AT = """
+MATCH (p:Project) RETURN p.loaded_at AS loaded_at
+"""
+
 # One Version node per name@version, each linked to its Package (created once).
 LOAD_VERSIONS = """
 UNWIND $rows AS r
