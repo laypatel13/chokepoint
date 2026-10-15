@@ -3,19 +3,49 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from typing import Any
 
+from rich._spinners import SPINNERS
 from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+from rich.theme import Theme
 
 from chokepoint.accounts import handle, is_bot
 
-out = Console(highlight=False)
-err = Console(stderr=True, highlight=False)
+# The terminal's arrow: a drawn "─▶" instead of the thin "→", which looks tiny in most terminal
+# fonts. Swapped in every string before Rich lays it out (so tables and panels size around it);
+# --json output is written separately and keeps the data exactly as the tools return it.
+ARROW = "─▶"
+
+
+# The website's palette (frontend/src/styles/base.css), so the CLI and the site look like one product.
+# The CLI's code keeps plain names ("cyan", "bold red"); the theme maps each one to the site's colour.
+BRAND, HIGHLIGHT, DANGER, OK, WARN, VIOLET = "#6ea8ff", "#ffde59", "#ff6b5b", "#4ade80", "#f2994a", "#c4a7ff"
+THEME = Theme({
+    "cyan": BRAND, "bold cyan": f"bold {BRAND}", "yellow": HIGHLIGHT, "bold yellow": f"bold {HIGHLIGHT}",
+    "yellow dim": f"dim {HIGHLIGHT}", "red": DANGER, "bold red": f"bold {DANGER}", "green": OK, "bold green": f"bold {OK}",
+    "magenta": VIOLET, "bold magenta": f"bold {VIOLET}", "bar.done": HIGHLIGHT, "bar.rest": "grey35",
+})
+
+# Nightjar is the spinner: it watches, and blinks now and then, while the graph works.
+SPINNERS["nightjar"] = {"interval": 220, "frames": ["(●v●)"] * 9 + ["(-v-)"] + ["(●v●)"] * 5 + ["(-v-)", "(●v●)"]}
+
+
+class _Console(Console):
+    def render_str(self, text: str, **kwargs: Any) -> Text:
+        return super().render_str(text.replace("→", ARROW), **kwargs)
+
+    def status(self, status: Any, *, spinner: str = "nightjar", spinner_style: str = BRAND, **kwargs: Any):  # type: ignore[override]
+        return super().status(status, spinner=spinner, spinner_style=spinner_style, **kwargs)
+
+
+out = _Console(highlight=False, theme=THEME)
+err = _Console(stderr=True, highlight=False, theme=THEME)
 
 
 def as_json(result: Any, keep_cypher: bool = False) -> None:
@@ -41,7 +71,24 @@ def hint(*commands: str) -> None:
 def cypher(log: list[dict]) -> None:
     for q in log:
         out.print(f"\n[dim]── {escape(q['name'])} · {q['ms']} ms · {escape(json.dumps(q.get('params', {})))}[/]")
-        out.print(Text(q["query"].strip(), style="cyan"))
+        out.print(cypher_text(q["query"].strip()))
+
+
+# Cypher, coloured like the story page's query sample (frontend/src/landing/highlight.tsx).
+_CYPHER = re.compile("|".join([
+    r"(?P<rel>\[:[A-Z_]+\])", r"(?P<label>:[A-Z][A-Za-z]+)",
+    r"(?P<kw>\b(?:MATCH|OPTIONAL MATCH|CALL|YIELD|UNWIND|AS|RETURN|ORDER BY|DESC|ASC|WITH|WHERE|DISTINCT|AND|OR|NOT|IN|LIMIT|"
+    r"MERGE|CREATE|SET|DELETE|UNION|CASE|WHEN|THEN|ELSE|END|IS NULL|IS NOT NULL|COUNT|COLLECT)\b)",
+    r"(?P<fn>\b[a-z][A-Za-z]*(?:\.[A-Za-z]+)?(?=\())", r"(?P<str>'[^']*')", r"(?P<param>\$[a-z_]+)", r"(?P<num>-?\b\d+\b)",
+]))
+_CYPHER_STYLE = {"rel": WARN, "label": HIGHLIGHT, "kw": f"bold {VIOLET}", "fn": BRAND, "str": OK, "param": WARN, "num": WARN}
+
+
+def cypher_text(query: str) -> Text:
+    t = Text(query, style="grey70")
+    for m in _CYPHER.finditer(query):
+        t.stylize(_CYPHER_STYLE[m.lastgroup], m.start(), m.end())
+    return t
 
 
 def bar(value: int, total: int, width: int = 14) -> Text:
@@ -69,7 +116,7 @@ def chain(nodes: list[str], bad: str | None = None) -> Text:
     t = Text()
     for i, n in enumerate(nodes):
         if i:
-            t.append(" → ", style="dim")
+            t.append(f" {ARROW} ", style="dim")
         t.append(short(n) if i == 0 else n, style="bold red" if n == bad else ("bold" if i == 0 else ""))
     return t
 
@@ -168,3 +215,39 @@ def advisories(r: dict) -> None:
         table.add_row(kind, a["id"], ", ".join(a["versions"][:3]) + (" …" if len(a["versions"]) > 3 else ""),
                       Text(a.get("summary") or "", style="dim", no_wrap=True, overflow="ellipsis"))
     out.print(table)
+
+
+def diff(d: dict, risky_from: int) -> None:
+    """`chokepoint diff`: who can publish into the app now, compared with the base lockfile."""
+    total = d["direct"]
+    out.print(f"[bold]package-lock.json vs {escape(d['base'])}[/] · [green]+{d['versions_added']}[/] / "
+              f"[red]−{d['versions_removed']}[/] installed versions\n")
+    if d["added"]:
+        out.print(f"[bold]{len(d['added'])} npm account{'s' if len(d['added']) != 1 else ''} can now publish into your app[/]")
+        table = Table(box=None, pad_edge=False, show_header=False)
+        for col, kw in (("", {"no_wrap": True}), ("", {"no_wrap": True}), ("", {"justify": "right", "no_wrap": True}),
+                        ("", {"style": "dim", "no_wrap": True, "overflow": "ellipsis"})):
+            table.add_column(col, **kw)
+        for a in d["added"][:10]:
+            mark = Text("risky", style="bold red") if a["reach"] >= risky_from else Text("")
+            via = [v.rsplit("@", 1)[0] for v in a["via"]]
+            table.add_row(Text("  ") + account(a["maintainer"]) + Text(" ") + mark, bar(a["reach"], total), f"{a['reach']}/{total}",
+                          f"via {via[0]}" + (f" +{len(via) - 1}" if len(via) > 1 else "") if via else "")
+        out.print(table)
+        if len(d["added"]) > 10:
+            out.print(f"  [dim]… and {len(d['added']) - 10} more (--json lists all)[/]")
+    else:
+        out.print("[green]✓[/] No new npm account can publish into your app.")
+    if d["grew"]:
+        out.print("\n[bold]Reaching further than before[/]")
+        for a in d["grew"][:5]:
+            out.print(f"  {handle(a['maintainer'])}  {a['before']} → {a['reach']} of {total} direct dependencies")
+    if d["removed"]:
+        names = ", ".join(handle(n) for n in d["removed"][:5])
+        out.print(f"\n[dim]{len(d['removed'])} account{'s' if len(d['removed']) != 1 else ''} can no longer publish into it: {escape(names)}"
+                  f"{'…' if len(d['removed']) > 5 else ''}[/]")
+    out.print()
+    if d["risky"]:
+        out.print(f"[bold red]Review before merging:[/] {len(d['risky'])} new account{'s' if len(d['risky']) != 1 else ''} "
+                  f"reach{'es' if len(d['risky']) == 1 else ''} ≥ {risky_from} of your {total} direct dependencies.")
+    hint("chokepoint who", "chokepoint diff <base> --fail-on risky   (in CI)")

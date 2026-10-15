@@ -66,7 +66,7 @@ def test_why_lists_every_installed_version(cli):
 
 def test_human_output_shortens_project_and_hints(cli):
     r = cli("check", "debug@4.4.2")
-    assert "example-app → @babel/core@7.25.2 → debug@4.4.2" in r.stdout
+    assert "example-app ─▶ @babel/core@7.25.2 ─▶ debug@4.4.2" in r.stdout  # the CLI draws a bolder arrow
     assert "chokepoint fix debug@4.4.2" in r.stdout
 
 
@@ -124,3 +124,40 @@ def test_same_package_name_in_two_folders_gets_two_ids(cli, tmp_path):
 def test_use_refuses_the_replay(cli):
     from chokepoint import incident
     assert cli("use", incident.REPLAY_PROJECT).exit_code == 2
+
+
+def test_home_screen_without_a_command(cli):
+    r = cli()
+    assert r.exit_code == 0
+    assert "who can poison your app?" in r.stdout and "chokepoint diff" in r.stdout and "chokepoint nightjar" in r.stdout
+
+
+def test_check_fail_on(cli):
+    assert cli("check", "debug@4.4.2", "--fail-on", "never").exit_code == 0
+    assert cli("check", "debug@4.4.2", "--fail-on", "prod").exit_code == 1  # it ships to production
+    assert cli("check", "debug@4.4.2", "--fail-on", "sometimes").exit_code == 2
+
+
+def test_diff_compares_rankings_including_teams(monkeypatch):
+    from chokepoint import tools as T
+    from chokepoint.cli import app as A
+
+    def ranking(rows):
+        return {"ranking": rows, "direct": {"direct": 10, "prod": 4}, "cypher": []}
+    rankings = {
+        "new": ranking([{"maintainer": "qix", "reach": 6, "via": ["a@1"]},
+                        {"maintainer": "team1", "reach": 3, "via": ["b@1"], "tied_with": ["team2"]}]),
+        "old": ranking([{"maintainer": "qix", "reach": 4, "via": ["a@1"]}, {"maintainer": "gone", "reach": 1, "via": ["c@1"]}]),
+    }
+    monkeypatch.setattr(T, "chokepoints", lambda project, **_: rankings[project])
+    d = A._diff("new", "old")
+    assert [a["maintainer"] for a in d["added"]] == ["team1", "team2"]  # a team counts account by account
+    assert d["removed"] == ["gone"]
+    assert [(a["maintainer"], a["before"], a["reach"]) for a in d["grew"]] == [("qix", 4, 6)]
+
+
+def test_cypher_is_coloured_by_token():
+    from chokepoint.cli.render import HIGHLIGHT, VIOLET, cypher_text
+    t = cypher_text("MATCH (p:Project) RETURN p")
+    styles = {t.plain[s.start:s.end]: str(s.style) for s in t.spans}
+    assert styles["MATCH"] == f"bold {VIOLET}" and styles[":Project"] == HIGHLIGHT

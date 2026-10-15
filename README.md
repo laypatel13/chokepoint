@@ -171,6 +171,7 @@ chokepoint investigate debug@4.4.2   # every check at once: installed? fresh ins
 chokepoint saved debug@4.4.2   # would a fresh install take it? which ranges?
 chokepoint fix debug@4.4.2     # clean version that fits every range (--write adds the override)
 chokepoint advisories          # known OSV advisories, malware first
+chokepoint diff origin/main    # what a lockfile change does to who can publish into you (--fail-on risky in CI)
 chokepoint ask "what if @qix gets phished?"   # plain words (keyword rules without an LLM)
 chokepoint nightjar            # Nightjar guards this app: new releases, investigated and decided (Ctrl+C to stop)
 chokepoint nightjar --install  # …or keep it running in the background from login (macOS/Linux)
@@ -179,7 +180,9 @@ chokepoint report -o report.md # shareable Markdown report
 chokepoint scan --github socketio/socket.io   # any public repo (then -p socketio/socket.io)
 ```
 
-Every command takes `--json` (scripts, CI) and `--explain` (prints the Cypher that ran). Outside a project
+`chokepoint` on its own shows Nightjar, the project you're in and the commands you'll use. Every command takes
+`--json` (scripts, CI) and `--explain` (prints the Cypher that ran, syntax-coloured). For CI gates:
+`chokepoint check <pkg@ver> --fail-on prod` and `chokepoint diff origin/main --fail-on risky` exit 1 on a finding. Outside a project
 folder, commands use the last project of yours you used and say so; they never fall back to the replay.
 
 ### The replay: Sept 8, 2025 (judges start here)

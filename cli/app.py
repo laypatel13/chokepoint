@@ -13,6 +13,7 @@ from typing import Optional
 import httpx
 import typer
 from rich.markup import escape
+from rich.table import Table
 
 from chokepoint import incident
 from chokepoint import projects as P
@@ -22,7 +23,7 @@ from chokepoint.cli import state
 from chokepoint.graph.load import load_project
 
 app = typer.Typer(
-    add_completion=False, no_args_is_help=True, rich_markup_mode="rich",
+    add_completion=False, rich_markup_mode="rich",
     help="Who can poison your app? Map every npm account that can publish code into your project, "
          "and how each package got in. Runs locally; the graph does the reasoning.",
 )
@@ -143,13 +144,67 @@ def overview(project: str, stats: dict, hints: tuple[str, ...] = ()) -> None:
     R.hint(*(hints or ("chokepoint map", "chokepoint who", "chokepoint check <package>@<version>", "chokepoint nightjar")))
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def _options(
+    ctx: typer.Context,
     project: Optional[str] = typer.Option(None, "--project", "-p", help="Project to use (default: the app in this folder)."),
     json_out: bool = typer.Option(False, "--json", help="Print the raw result as JSON."),
     explain: bool = typer.Option(False, "--explain", help="Also print the Cypher that ran in FalkorDB."),
 ) -> None:
     Opts.project, Opts.json, Opts.explain = project, json_out, explain
+    if ctx.invoked_subcommand is None:
+        home()
+        raise typer.Exit()
+
+
+# What `chokepoint` alone shows: the commands you'll actually use (`chokepoint --help` lists all).
+HOME_COMMANDS = (
+    ("chokepoint who", "who can publish code into this app, ranked by reach"),
+    ("chokepoint check debug@4.4.2", "is this version in it, through which road, prod or dev?"),
+    ("chokepoint investigate <pkg@ver>", "every check on one version at once"),
+    ("chokepoint diff", "what your lockfile change does to who can publish into you"),
+    ("chokepoint nightjar", "Nightjar watches new npm releases and acts"),
+    ("chokepoint map", "the graph, in your browser"),
+    ('chokepoint ask "…"', "plain words; your LLM picks the tool through MCP"),
+    ("chokepoint replay", "the real Sept 8, 2025 attack, step by step"),
+)
+
+
+def home() -> None:
+    """The home screen: Nightjar, where you are (never starts a long scan), and what to run next."""
+    from chokepoint.watch import look
+
+    lockfile = state.find_lockfile()
+    known = state.project_for_folder(lockfile.parent) if lockfile else None
+    if known and state.lock_hash_of(known) == state.fingerprint(lockfile) and known in {p["repo"] for p in run(T.list_projects)}:
+        s = run(T.graph_stats, known)
+        top = run(T.chokepoints, known, top_n=1)
+        lead = top["ranking"][0] if top.get("ranking") else None
+        here = [f"[bold]{escape(known)}[/] · {s['nodes'].get('Version', 0):,} versions · {s['direct']['direct']} direct dependencies",
+                f"[dim]riskiest account:[/] [yellow]@{escape(lead['maintainer'])}[/] reaches {lead['reach']} of {s['direct']['direct']}"
+                if lead else "[dim]no maintainer data yet[/]"]
+        mood = "watching"
+    elif lockfile:
+        here = [f"[bold]{escape(_short(str(lockfile.parent)))}[/] has a package-lock.json",
+                "[dim]`chokepoint who` builds its graph (first time: about 30 s)[/]"]
+        mood = "watching"
+    else:
+        here = ["[dim]Not in an npm project: cd into your app,[/]", "[dim]or explore the real Sept 8, 2025 attack: `chokepoint replay`[/]"]
+        mood = "resting"
+    lines = ["[bold]Chokepoint[/] · [dim]who can poison your app?[/]", *here]
+    if R.out.is_terminal and R.out.color_system and R.out.width >= 72:
+        R.out.print(look.beside(mood, ["", *lines]), end="")
+    else:
+        for line in lines:
+            R.out.print(line)
+    R.out.print()
+    table = Table(box=None, pad_edge=False, show_header=False)
+    table.add_column(style="bold cyan", no_wrap=True)
+    table.add_column(style="dim")
+    for cmd, what in HOME_COMMANDS:
+        table.add_row(escape(cmd), what)
+    R.out.print(table)
+    R.out.print("\n[dim]Everything else: chokepoint --help · no LLM needed for any of it[/]")
 
 
 # ---------- projects -------------------------------------------------------------------
@@ -240,8 +295,14 @@ def who(
 
 
 @app.command(rich_help_panel="Questions")
-def check(key: str = typer.Argument(..., help="package@version, e.g. debug@4.4.2")) -> None:
+def check(
+    key: str = typer.Argument(..., help="package@version, e.g. debug@4.4.2"),
+    fail_on: str = typer.Option("installed", "--fail-on", help="When to exit 1 (for CI): installed, prod (only if it ships "
+                                "to production) or never."),
+) -> None:
     """Q1: is this exact version in your project, through which road, and does it ship to production?"""
+    if fail_on not in ("installed", "prod", "never"):
+        fail("--fail-on must be installed, prod or never", EXIT_USAGE)
     project = current_project()
     r = run(T.explain_path, project, key)
 
@@ -258,11 +319,88 @@ def check(key: str = typer.Argument(..., help="package@version, e.g. debug@4.4.2
         R.hint(f"chokepoint fix {key}", f"chokepoint why {key.rsplit('@', 1)[0]}")
 
     emit(r, show)
-    if r["affected"]:
+    if r["affected"] and (fail_on == "installed" or (fail_on == "prod" and r.get("ships_to_prod"))):
         raise typer.Exit(EXIT_FINDING)
 
 
 @app.command(rich_help_panel="Questions")
+def diff(
+    base: str = typer.Argument("HEAD", help="Git ref to compare with: HEAD (your uncommitted change, default), main, origin/main…"),
+    fail_on: str = typer.Option("never", "--fail-on", help="When to exit 1 (for CI): never, new-account (any account that "
+                                "could not publish into you before) or risky (a new account reaching ≥ 10% of your direct dependencies)."),
+) -> None:
+    """What a lockfile change does to who can publish code into your app: npm accounts added and removed, and how
+    far each one reaches. Both versions are loaded into FalkorDB and ranked by the same graph queries.
+    In a pull request: chokepoint diff origin/main --fail-on risky"""
+    import subprocess
+    import tempfile
+
+    from chokepoint.graph.db import project_graph
+    from chokepoint.ingest.lockfile import parse_lockfile
+
+    if fail_on not in ("never", "new-account", "risky"):
+        fail("--fail-on must be never, new-account or risky", EXIT_USAGE)
+    lockfile = state.find_lockfile()
+    if not lockfile:
+        fail(NOT_IN_PROJECT)
+    git = lambda *a: subprocess.run(["git", "-C", str(lockfile.parent), *a], capture_output=True, text=True)  # noqa: E731
+    top = git("rev-parse", "--show-toplevel")
+    if top.returncode:
+        fail("`chokepoint diff` compares with git history, and this folder isn't in a git repository.")
+    rel = lockfile.resolve().relative_to(Path(top.stdout.strip()).resolve()).as_posix()
+    before = git("show", f"{base}:{rel}")
+    if before.returncode:
+        fail(f"No {rel} at {base}: {before.stderr.strip() or 'unknown ref'}")
+    project = ensure_local(lockfile)
+    if before.stdout.strip() == lockfile.read_text().strip():
+        if Opts.json:
+            R.as_json({"base": base, "changed": False})
+        else:
+            R.out.print(f"[green]✓[/] package-lock.json hasn't changed since [bold]{escape(base)}[/]: nobody new can publish into your app.")
+        return
+    try:
+        old_lock = parse_lockfile(json.loads(before.stdout))
+    except Exception as e:  # noqa: BLE001
+        fail(f"Couldn't read {rel} at {base}: {e}")
+    old_id = f"{project}~diff"  # a throwaway graph for the old lockfile, deleted below
+    try:
+        with R.err.status(f"Building the graph for {base}'s lockfile and ranking both…"):
+            run(load_project, old_id, old_lock)
+            d = run(_diff, project, old_id)
+    finally:
+        try:
+            project_graph(old_id).delete()
+        except Exception:  # noqa: BLE001
+            pass
+    new_pkgs = {(p.name, p.version) for p in run(P.local_project, lockfile)[1].packages.values()}
+    old_pkgs = {(p.name, p.version) for p in old_lock.packages.values()}
+    d.update(base=base, changed=True, versions_added=len(new_pkgs - old_pkgs), versions_removed=len(old_pkgs - new_pkgs))
+    total = d["direct"]
+    risky_from = max(2, -(-total // 10))  # 10% of the direct dependencies (at least 2): reaching past the package you added
+    d["risky"] = [a for a in d["added"] if a["reach"] >= risky_from]
+    emit(d, lambda d: R.diff(d, risky_from))
+    if (fail_on == "new-account" and d["added"]) or (fail_on == "risky" and d["risky"]):
+        raise typer.Exit(EXIT_FINDING)
+
+
+def _diff(project: str, old: str) -> dict:
+    """Both rankings come from FalkorDB (the same chokepoint queries); this only compares the two lists.
+    Accounts grouped as a team (`tied_with`) count individually."""
+    def accounts(r: dict) -> dict[str, dict]:
+        out = {}
+        for row in r["ranking"]:
+            for name in [row["maintainer"], *row.get("tied_with", [])]:
+                out[name] = {**row, "maintainer": name}
+        return out
+    now_r = T.chokepoints(project, top_n=100_000, when="now")
+    old_r = T.chokepoints(old, top_n=100_000, when="now")
+    now, before = accounts(now_r), accounts(old_r)
+    added = sorted((now[a] for a in now.keys() - before.keys()), key=lambda r: (-r["reach"], r["maintainer"]))
+    removed = sorted(before.keys() - now.keys())
+    grew = sorted(({**now[a], "before": before[a]["reach"]} for a in now.keys() & before.keys() if now[a]["reach"] > before[a]["reach"]),
+                  key=lambda r: (r["before"] - r["reach"], r["maintainer"]))
+    return {"project": project, "direct": now_r["direct"]["direct"], "added": added, "removed": removed, "grew": grew,
+            "cypher": now_r.get("cypher", []) + old_r.get("cypher", [])}
 def investigate(key: str = typer.Argument(..., help="package@version, e.g. debug@4.4.2")) -> None:
     """Every check on one version at once: in the project? fresh install? fix? who can publish it?"""
     project = current_project()
