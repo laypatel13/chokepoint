@@ -24,7 +24,7 @@ export function Footer() {
   return (
     <footer className="wrap foot">
       <a className="brand-link" href="/"><Logo />Chokepoint</a>
-      <span>Graph Hacks 2026 · Track 01: Agents That Act on Connected Data · built on FalkorDB</span>
+      <span>Graph Hacks 2026 · Track 01: Agents That Act on Connected Data · Track 02: Agent Memory and Coordination · built on FalkorDB</span>
     </footer>
   );
 }
