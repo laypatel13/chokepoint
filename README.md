@@ -5,13 +5,13 @@
 <h1 align="center">Chokepoint</h1>
 
 <p align="center">
-  <b>Who can poison your app?</b><br>
-  Chokepoint maps every npm account that can push code into your project, and its watcher agent,
-  <b>Nightjar</b>, speaks up before the security advisory does.
+  <b><i>Who can poison your app?</i></b><br>
+  <i>Chokepoint maps every npm account that can push code into your project, and its watcher agent,</i>
+  <b>Nightjar</b>, <i>speaks up before the security advisory does.</i>
 </p>
 
 <p align="center">
-  <img alt="Graph Hacks 2026 · Track 01" src="https://img.shields.io/badge/Graph%20Hacks%202026-Track%2001-6ea8ff?style=flat-square">
+  <img alt="Graph Hacks 2026 · Track 01 + 02" src="https://img.shields.io/badge/Graph%20Hacks%202026-Track%2001%20%2B%2002-6ea8ff?style=flat-square">
   <img alt="Built on FalkorDB" src="https://img.shields.io/badge/built%20on-FalkorDB-ffde59?style=flat-square">
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-4ade80?style=flat-square">
   <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-c4a7ff?style=flat-square">
@@ -147,8 +147,7 @@ Measured on the live graph.
 | webpack-dev-server today | 1,128 | 76 (26 production) | 594 | 2,491 | 8 |
 | mocha today | 715 | 53 (16 production) | 447 | 1,256 | 39 |
 
-<details>
-<summary><b>For the curious: the graph model, the queries and the scoring</b></summary>
+## Graph model and queries
 
 ### Graph model
 
@@ -163,7 +162,8 @@ memory lives in its own graph per project (`memory:<project>`), so rebuilding a 
 (Maintainer)-[:PUBLISHED]->(Version)                   who actually pushed this version
 (Advisory)-[:AFFECTS]->(Version)                       from OSV
 
-Nightjar's memory:  (Alert)-[:PUBLISHED_BY]->(Maintainer)   (Decision)-[:BASED_ON]->(Alert)
+Nightjar's memory:  (Alert)-[:ABOUT]->(Package)   (Alert)-[:PUBLISHED_BY]->(Maintainer)
+                    (Decision)-[:BASED_ON]->(Alert)
 ```
 
 | Label | Key | Kept |
@@ -182,7 +182,8 @@ user input), each with a plain-English comment. The main ones:
 | Query | Answers |
 |---|---|
 | `SHORTEST_PATHS`, `SHORTEST_FROM_DIRECT` | the road from your app to a version, preferring production |
-| `DIRECT_DEPS_REACHING`, `DEPENDENTS_COUNT` | which dependencies pull a version in, and how much depends on it (`algo.BFS`) |
+| `DIRECT_DEPS_REACHING` | which of your direct dependencies pull a version in (`algo.BFS`) |
+| `DEPENDENTS_COUNT` | how many installed versions depend on it: one walk backwards from that version, each counted once |
 | `CHOKEPOINT_REACH` | for every account: how many direct dependencies reach a package it can publish (`algo.BFS`) |
 | `CHOKEPOINT_BETWEENNESS` | which accounts sit on the bridges many paths pass through (`algo.betweenness`, fixed seed) |
 | `CHOKEPOINT_PAGERANK` | how influential the versions an account controls are (`algo.pageRank`) |
@@ -192,7 +193,9 @@ user input), each with a plain-English comment. The main ones:
 | `MEM_RECALL`, `MEM_ACCOUNT_HISTORY`, … | Nightjar's memory |
 
 **Why BFS and not `[:DEPENDS_ON*]`?** A variable-length pattern walks every possible *path*, and real
-dependency graphs have exponentially many: the naive reach query timed out. `algo.BFS` visits each node once.
+dependency graphs have exponentially many: the naive reach query (from every dependency, to everything) timed
+out. `algo.BFS` visits each node once. Counting what depends on *one* version is the exception: a single walk
+backwards from it with `count(DISTINCT …)` is about 10× faster than a BFS from every node, with the same count.
 
 ### Scoring "who could poison me?"
 
@@ -216,7 +219,25 @@ recognised), provenance dropped, and earlier alerts on the same account (memory)
 INFO → WATCH → ALERT → CONFIRMED (when an OSV malware advisory appears). An LLM, if you have one, may
 investigate an ALERT with up to three read-only tools and write the brief. It never changes the verdict.
 
-</details>
+## Memory that agents share
+
+Nightjar's memory is a FalkorDB graph of its own per project (`memory:<project>`), next to the project's
+graph:
+
+- **It lasts.** Alerts and decisions survive restarts and re-scans: re-building a project's graph never
+  touches its memory.
+- **It changes as the world does.** An open alert is re-checked against OSV on every cycle: a malware
+  advisory moves it to **CONFIRMED**; none after the cooldown moves it to **CLEARED**. Every move is a new
+  `Decision` linked to the alert, so the history stays.
+- **It feeds the next decision.** Earlier alerts on the same npm account raise the score of its next release
+  (`MEM_ACCOUNT_HISTORY`).
+- **Two agents share it.** Nightjar writes it; the `ask` agent reads it through the MCP `recall` tool, so
+  "what did Nightjar see?" is answered from the same graph, in the terminal, the app or any MCP client.
+- **Kept apart.** One memory graph per project, and fire-drill or replay notes are marked as such, so they
+  never count as real history.
+
+The memory queries (`MEM_SAVE_ALERT`, `MEM_SAVE_DECISION`, `MEM_RECALL`, `MEM_ACCOUNT_HISTORY`,
+`MEM_OPEN_ALERTS`, …) are in [`backend/graph/queries.py`](backend/graph/queries.py) with the rest.
 
 ## Run it yourself
 
@@ -294,8 +315,7 @@ Browser tests in real Chrome, for both the website and `chokepoint map` (inside 
 npm run e2e
 ```
 
-<details>
-<summary><b>Settings (<code>.env</code>)</b></summary>
+### Settings (`.env`)
 
 | Variable | What it's for |
 |---|---|
@@ -303,8 +323,6 @@ npm run e2e
 | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | any OpenAI-compatible LLM (Ollama, Groq, Gemini, …). Leave empty: everything still works |
 | `LLM_REASONING_EFFORT` | `none` turns off "thinking" on local models (faster). Leave empty for hosted ones |
 | `GITHUB_TOKEN`, `GITHUB_DEMO_REPO` | the website's PR button: a fine-grained token for **one sandbox fork only** |
-
-</details>
 
 ## Where things are
 
