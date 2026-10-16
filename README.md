@@ -373,6 +373,9 @@ npm run e2e
 ## Safety and privacy
 
 - **Usernames only.** Chokepoint stores npm usernames, never emails or anything personal.
+- **No accounts, cookies, analytics or trackers.** Scans on the website are public (the site says so before you
+  scan, and `chokepoint share` asks first). Everything is in the
+  **[privacy notice](https://chokepoint.onrender.com/privacy)**.
 - **Your code stays home.** The CLI reads your lockfile locally; only package names go to npm and OSV.
 - **No AI required.** Without an LLM everything works; with one, it only picks tools and rewords results. It
   never writes or runs a database query, and never changes a verdict.

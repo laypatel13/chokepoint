@@ -42,7 +42,9 @@ export function ScanCard({ state, onScan, onReset }: { state: ScanState; onScan:
           </div>
           <button className="btn primary" id="scan-btn" type="submit" disabled={busy}>{busy ? "Scanning…" : "Scan"}</button>
         </div>
-        <p id="scan-help" className="scan-help">Needs a <code>package-lock.json</code> (v2 or v3) on <code>main</code> or <code>master</code>.</p>
+        <p id="scan-help" className="scan-help">Needs a <code>package-lock.json</code> (v2 or v3) on <code>main</code> or <code>master</code>.
+          {" "}<b>Scans are public:</b> anyone can open the result, and the repo is listed under "Recently scanned".
+          {" "}<a href="/privacy">Privacy</a></p>
         <div className="scan-try"><span className="muted">Try one:</span>
           {EXAMPLES.map((r) => <button key={r} type="button" className="chip" data-repo={r} onClick={() => scan(r)}>{r}</button>)}
         </div>

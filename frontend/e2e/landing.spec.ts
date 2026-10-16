@@ -228,3 +228,18 @@ test.describe("404", () => {
     expect(await api.json()).toHaveProperty("detail");
   });
 });
+
+test.describe("privacy", () => {
+  test("scanning says it's public, and the privacy page explains what's kept", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("#scan-help")).toContainText("Scans are public");
+    await expect(page.locator(".foot a[href='/privacy']")).toBeVisible();
+    const outside: string[] = [];
+    page.on("request", (r) => { if (!r.url().startsWith("http://127.0.0.1")) outside.push(r.url()); });
+    await page.goto("/privacy");
+    await expect(page).toHaveTitle("Chokepoint · Privacy");
+    await expect(page.locator("h1")).toContainText("very little");
+    await expect(page.locator(".pv-card")).toContainText("never written to disk");
+    expect(outside).toEqual([]);  // the privacy page itself loads nothing from anywhere else
+  });
+});

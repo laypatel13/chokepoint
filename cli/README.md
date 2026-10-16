@@ -228,7 +228,7 @@ chokepoint ask "is debug@4.4.2 in my app and what do I pin?"
 | Command | What it does |
 |---|---|
 | `chokepoint report -o report.md` | A Markdown report: size, top accounts, malware, recent Nightjar alerts. |
-| `chokepoint share owner/repo` | Asks the hosted site to scan a **public** repo, to get a link you can share. Uploads nothing from your machine: only the repo name. |
+| `chokepoint share owner/repo` | Asks the hosted site to scan a **public** repo, to get a link you can share. It asks you first, because the result is public on the site. Uploads nothing from your machine: only the repo name. |
 
 #### Options for every command
 
@@ -351,7 +351,8 @@ chokepoint nightjar --once
 - Your code and your lockfile. Only **package names** go to npm and OSV, to look them up.
 - The graph, in a database inside the CLI (no Docker needed), in your user data folder
   (set `CHOKEPOINT_DATA_DIR` to move it).
-- Chokepoint stores npm **usernames**, never emails.
+- Chokepoint stores npm **usernames**, never emails. The CLI sends no telemetry. The full privacy notice (website
+and CLI) is at [chokepoint.onrender.com/privacy](https://chokepoint.onrender.com/privacy).
 
 ### Your keys
 

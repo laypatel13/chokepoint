@@ -172,3 +172,17 @@ def test_behind_a_cdn_the_cdn_header_names_the_visitor(monkeypatch):
     req = Request({"type": "http", "client": ("10.0.0.9", 1), "headers": [
         (b"x-forwarded-for", b"6.6.6.6, 203.0.113.7, 172.70.1.1"), (b"cf-connecting-ip", b"203.0.113.7")]})
     assert limits.visitor(req) == "203.0.113.7"
+
+
+def test_visitor_addresses_are_forgotten_an_hour_after_their_last_request(monkeypatch):
+    """The privacy page promises it: an address is kept only while it still counts against a limit."""
+    from collections import deque
+
+    from chokepoint.api import limits
+    limits.reset()
+    monkeypatch.setattr(limits, "_last_sweep", 0.0)
+    limits._hits[("203.0.113.7", "ask")] = deque([100.0])
+    limits._hits[("198.51.100.2", "ask")] = deque([100.0 + limits.KEEP_S])
+    limits._forget_idle(101.0 + limits.KEEP_S)
+    assert ("203.0.113.7", "ask") not in limits._hits and ("198.51.100.2", "ask") in limits._hits
+    limits.reset()

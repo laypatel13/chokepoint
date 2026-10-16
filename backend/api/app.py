@@ -353,6 +353,11 @@ def index():
     return _page("app.html")
 
 
+@app.get("/privacy")
+def privacy():
+    return _page("privacy.html")
+
+
 @app.get("/favicon.svg")
 def favicon():
     return _page("favicon.svg")

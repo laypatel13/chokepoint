@@ -89,6 +89,21 @@ def _allow(window: deque[float], limit: int, seconds: int, now: float) -> bool:
     return True
 
 
+KEEP_S = max(seconds for _, seconds in LIMITS.values())  # the longest window: an hour
+_last_sweep = 0.0
+
+
+def _forget_idle(now: float) -> None:
+    """A visitor's address is kept only while it still counts against a limit: at most an hour after their
+    last request (the privacy page promises this). Swept at most once a minute; call with _lock held."""
+    global _last_sweep
+    if now - _last_sweep < 60:
+        return
+    _last_sweep = now
+    for key in [k for k, w in _hits.items() if not w or w[-1] <= now - KEEP_S]:
+        del _hits[key]
+
+
 def check(request: Request, action: str) -> None:
     """Raise 429 when this visitor has used `action` too often recently."""
     if os.getenv("CHOKEPOINT_RATE_LIMITS") == "off":  # the browser tests: one machine, hundreds of requests a minute
@@ -96,6 +111,7 @@ def check(request: Request, action: str) -> None:
     limit, seconds = LIMITS[action]
     now = time.monotonic()
     with _lock:
+        _forget_idle(now)
         if len(_hits) > 50_000:  # many visitors: forget the oldest windows rather than grow forever
             _hits.clear()
         ok = _allow(_hits.setdefault((visitor(request), action), deque()), limit, seconds, now)

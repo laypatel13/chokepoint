@@ -693,10 +693,23 @@ def report(out_file: Optional[Path] = typer.Option(None, "--out", "-o", help="Wr
 
 
 @app.command(rich_help_panel="Share")
-def share(repo: str = typer.Argument(..., metavar="OWNER/REPO", help="A PUBLIC GitHub repo, e.g. axios/axios")) -> None:
+def share(
+    repo: str = typer.Argument(..., metavar="OWNER/REPO", help="A PUBLIC GitHub repo, e.g. axios/axios"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Don't ask: you agree the result is public (for scripts)."),
+) -> None:
     """Ask the hosted Chokepoint site to scan a public repo. Uploads nothing from your machine: only the repo name."""
     site = os.getenv("CHOKEPOINT_SITE") or C.load().get("site", {}).get("url") or "https://chokepoint.onrender.com"
     name = run(P.normalize_repo, repo)
+    if not yes:
+        if Opts.json:
+            fail("--json with share needs --yes (no prompt to answer).", EXIT_USAGE)
+        R.out.print(f"This asks [bold]{escape(site)}[/] to scan [bold]{escape(name)}[/]. Only the repo name is sent.\n"
+                    "[yellow]The result is public:[/] anyone can open it, and the repo is listed under \"Recently scanned\" "
+                    "on the site.\n"
+                    f"[dim]Privacy: {escape(site.rstrip('/'))}/privacy[/]")
+        if not Confirm.ask("Share it?", default=False):
+            R.out.print("Not shared.")
+            return
     try:
         r = httpx.post(f"{site.rstrip('/')}/api/scan", json={"repo": name}, timeout=30)
         job = r.json()

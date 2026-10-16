@@ -1,0 +1,18 @@
+/* The privacy page: one readable card, the same calm look as the 404 page. */
+.pv { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 40px 16px 64px; }
+.pv-brand { display: inline-flex; align-items: center; gap: 10px; color: rgb(var(--c-ink)); text-decoration: none; font: 600 18px var(--display); }
+.pv-brand .logo-mark { width: 28px; height: 28px; }
+.pv-card { width: min(720px, 100%); padding: 36px 32px 32px; border-radius: var(--r-xl);
+  background: rgb(var(--c-surface)); border: 1px solid rgb(var(--c-border)); box-shadow: var(--shadow-pop); }
+.pv-kicker { margin: 0; font: 500 12px var(--mono); letter-spacing: .2em; text-transform: uppercase; color: rgb(var(--c-ink-3)); }
+.pv h1 { margin: 8px 0 14px; font: 600 clamp(26px, 5vw, 34px)/1.22 var(--display); text-wrap: balance; }
+.pv h2 { margin: 28px 0 10px; font: 500 17px var(--sans); }
+.pv-lead, .pv p { color: rgb(var(--c-ink-2)); font-size: 15px; line-height: 1.7; margin: 0 0 12px; }
+.pv ul { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+.pv li { color: rgb(var(--c-ink-2)); font-size: 15px; line-height: 1.7; }
+.pv li b, .pv p b { color: rgb(var(--c-ink)); font-weight: 500; }
+.pv code { font: 400 13px var(--mono); color: rgb(var(--c-ink)); }
+.pv-card a:not(.btn) { color: rgb(var(--c-brand)); overflow-wrap: anywhere; }
+.pv-foot { font-size: 13.5px !important; color: rgb(var(--c-ink-3)) !important; }
+.pv-cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+@media (max-width: 520px) { .pv-card { padding: 28px 20px 24px; } }

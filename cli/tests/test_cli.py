@@ -200,3 +200,13 @@ def test_replay_fix_never_writes_or_opens(cli):
     for flag in ("--write", "--pr"):  # refused before anything is fetched, built or written
         r = cli("-p", incident.REPLAY_PROJECT, "fix", "debug@4.4.2", flag)
         assert r.exit_code != 0 and "example on webpack-dev-server's history" in r.output
+
+
+def test_share_asks_first_and_sends_nothing_when_you_decline(cli, monkeypatch):
+    import httpx
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("sent without consent")))
+    from typer.testing import CliRunner
+
+    from chokepoint.cli.app import app
+    r = CliRunner().invoke(app, ["share", "axios/axios"], input="n\n")
+    assert r.exit_code == 0 and "The result is public" in r.output and "Not shared." in r.output

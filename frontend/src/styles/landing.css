@@ -230,7 +230,9 @@ section[id] { scroll-margin-top: 72px; }
 .scan-input:focus-within { border-color: rgb(var(--c-brand)); box-shadow: 0 0 0 3px rgb(var(--c-brand) / .2); }
 .scan-input input { flex: 1; height: 100%; padding: 0; border: 0; background: transparent; font: 400 13.5px var(--mono); box-shadow: none !important; }
 .scan-row .btn { height: 46px; padding: 0 24px; }
-.scan-help { margin: 0; font-size: 12.5px; color: rgb(var(--c-ink-3)); }
+.scan-help { margin: 0; font-size: 12.5px; line-height: 1.6; color: rgb(var(--c-ink-3)); }
+.scan-help b { color: rgb(var(--c-ink-2)); font-weight: 500; }
+.scan-help a, .foot a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .scan-try { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 13px; }
 .scan-try .chip { font: 400 12px var(--mono); }
 
