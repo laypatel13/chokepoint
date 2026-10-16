@@ -169,3 +169,34 @@ def test_every_command_the_home_screen_lists_exists(cli):
         name = cmd.split()[1]
         r = cli(name, "--help")
         assert r.exit_code == 0, f"`chokepoint {name}` is listed on the home screen but doesn't exist"
+
+
+def test_fix_prs_only_for_the_app_the_repo_belongs_to(monkeypatch):
+    """A repo set up for one app never gets PRs about another app, and the replay never opens or writes anything."""
+    import typer
+
+    from chokepoint import incident
+    from chokepoint.cli import app as A
+    from chokepoint.cli import config as C
+
+    monkeypatch.setattr(C, "github", lambda: {"repo": "me/app-a", "path": "", "project": "local:app-a", "token": "t"})
+    assert A.github_for("local:app-a") == ("me/app-a", "t", "")
+    for other in ("local:app-b", incident.REPLAY_PROJECT):
+        with pytest.raises(typer.Exit):
+            A.github_for(other)
+
+
+def test_github_token_is_never_the_llm_key(monkeypatch):
+    from chokepoint.cli import config as C
+
+    monkeypatch.setenv("CHOKEPOINT_LLM_API_KEY", "sk-llm-secret")
+    monkeypatch.delenv("CHOKEPOINT_GITHUB_TOKEN", raising=False)
+    monkeypatch.setattr(C, "_keychain", lambda name: None)
+    assert C.github()["token"] is None
+
+
+def test_replay_fix_never_writes_or_opens(cli):
+    from chokepoint import incident
+    for flag in ("--write", "--pr"):  # refused before anything is fetched, built or written
+        r = cli("-p", incident.REPLAY_PROJECT, "fix", "debug@4.4.2", flag)
+        assert r.exit_code != 0 and "example on webpack-dev-server's history" in r.output

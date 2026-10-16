@@ -89,6 +89,11 @@ def test_hosted_prs_only_for_the_replay(monkeypatch):
     monkeypatch.setattr(A.github_pr, "_demo_repo", lambda: ("me/webpack-dev-server", "token"))
     assert A._why_no_pr("webpack/webpack-dev-server@fa9195c") is None
     assert "only for the Sept 8 replay" in A._why_no_pr("socketio/socket.io")
+    # the API is public: a hand-made request can't pin some other package on the fork
+    rp = "webpack/webpack-dev-server@fa9195c"
+    assert A._why_no_pr(rp, "debug@4.4.2") is None and A._why_no_pr(rp, "debug@4.4.1") is None
+    assert "poisoned on Sept 8" in A._why_no_pr(rp, "left-pad@1.0.0")
+    assert "poisoned on Sept 8" in A._why_no_pr(rp, "@evil/chalk@5.6.1")
 
 
 def test_hosted_armour(monkeypatch):

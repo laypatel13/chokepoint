@@ -173,6 +173,10 @@ def config_show() -> None:
     for section in ("watch", "site"):
         if data.get(section):
             R.out.print(f"{section + ':':<12} {data[section]}")
+    g = C.github()
+    if g["repo"]:
+        R.out.print(f"github:      fix PRs for {g['project'] or '(no app: run `chokepoint config github` in your app)'} "
+                    f"open on {g['repo']} · token {'stored' if g['token'] else 'none'}")
 
 
 @config_app.command("llm")
@@ -231,6 +235,10 @@ def config_github(
         C.delete_key("github")
         R.out.print("[green]✓[/] Forgot your GitHub repo and token. Nightjar won't open PRs.")
         return
+    project = current_project()  # the app you're in: PRs from this repo are about this app only
+    from chokepoint.cli.app import REPLAY_IS_HISTORY, is_replay
+    if is_replay(project):
+        fail(REPLAY_IS_HISTORY)
     R.out.print(Panel.fit(
         "[bold]Fix PRs on your own repo[/]\n"
         "Chokepoint opens a PR that pins the poisoned version (it never merges anything). It needs a\n"
@@ -248,11 +256,12 @@ def config_github(
     from chokepoint.actions import github_pr
     with R.err.status(f"Checking the token can write to {repo}…"):
         base = run(github_pr.check_access, repo, token)
-    C.update("github", repo=repo, path=path.strip("/") or None)
+    C.update("github", repo=repo, path=path.strip("/") or None, project=project)
     if token_env:
-        R.out.print(f"[green]✓[/] {escape(repo)} ({escape(base)}) · the token is read from ${escape(token_env)} each time")
+        R.out.print(f"[green]✓[/] {escape(repo)} ({escape(base)}) for {escape(project)} · the token is read from "
+                    f"${escape(token_env)} each time")
     elif C.set_key("github", token):
-        R.out.print(f"[green]✓[/] {escape(repo)} ({escape(base)}) · token saved in your OS keychain")
+        R.out.print(f"[green]✓[/] {escape(repo)} ({escape(base)}) for {escape(project)} · token saved in your OS keychain")
     else:
         R.out.print("[yellow]No OS keychain here.[/] Set CHOKEPOINT_GITHUB_TOKEN in your environment instead.")
     R.hint("chokepoint fix <package>@<version> --pr", "chokepoint nightjar --pr")
@@ -275,18 +284,17 @@ def _pr_gate() -> None:
 def _acts(edit: bool, pr: bool) -> str:
     """What Nightjar does on an ALERT, in a few words, for its banner."""
     if edit and pr:
-        return f"on ALERT: pins in package.json and opens a fix PR on {C.github()[0]}"
+        return f"on ALERT: pins in package.json and opens a fix PR on {C.github()['repo']}"
     if pr:
-        return f"on ALERT: opens a fix PR on {C.github()[0]}"
+        return f"on ALERT: opens a fix PR on {C.github()['repo']}"
     return "on ALERT: pins in package.json" if edit else "reports only"
 
 
 def _user_pr_opener(project: str):
     """For `nightjar --pr`: opens (or updates) a fix PR on your repo when Nightjar raises an ALERT."""
     from chokepoint.actions import github_pr
-    repo, token, path = C.github()
-    if not (repo and token):
-        fail("Nightjar needs your repo and a token to open PRs: run `chokepoint config github` first.")
+    from chokepoint.cli.app import github_for
+    repo, token, path = github_for(project)  # only this app's own repo, never another app's
 
     def opener(r, level: str, why: list[str], brief: str, pin: str) -> str:
         text = github_pr.nightjar_pr(project, r.name, r.version, pin, level, r.publisher, r.at, why, brief)

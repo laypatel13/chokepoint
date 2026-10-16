@@ -129,7 +129,20 @@ def apply_llm_env() -> None:
 PRS_PER_DAY = 5  # Nightjar opens at most this many new PRs a day, whatever happens
 
 
-def github() -> tuple[str | None, str | None, str]:
-    """(repo, token, path of package.json in the repo). The token: CHOKEPOINT_GITHUB_TOKEN, else the keychain."""
+def github() -> dict:
+    """Where fix PRs go: {repo, path (of package.json in the repo), project (the one app this repo belongs to),
+    token}. The token: CHOKEPOINT_GITHUB_TOKEN, else the keychain. Never the LLM key: get_key's
+    CHOKEPOINT_LLM_API_KEY shortcut is for LLM providers only, and must not be sent to GitHub."""
     cfg = load().get("github", {})
-    return cfg.get("repo") or None, os.getenv("CHOKEPOINT_GITHUB_TOKEN") or get_key("github"), cfg.get("path") or ""
+    token = os.getenv("CHOKEPOINT_GITHUB_TOKEN") or _keychain("github")
+    return {"repo": cfg.get("repo") or None, "path": cfg.get("path") or "", "project": cfg.get("project") or None,
+            "token": token or None}
+
+
+def _keychain(name: str) -> str | None:
+    try:
+        import keyring
+
+        return keyring.get_password(KEYRING_SERVICE, name)
+    except Exception:
+        return None

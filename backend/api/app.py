@@ -27,6 +27,7 @@ if not LOCAL:  # the CLI already applied your settings; don't read a .env from w
 
 from chokepoint import tools as T  # noqa: E402
 from chokepoint import projects  # noqa: E402
+from chokepoint import incident as sept8  # noqa: E402
 from chokepoint.actions import github_pr  # noqa: E402
 from chokepoint.agent import llm, loop  # noqa: E402
 from chokepoint.api import limits  # noqa: E402
@@ -266,18 +267,21 @@ def fix_preview(body: Fix, request: Request):
 
         folder = state.folder_of(body.project)
     out = _guard(github_pr.preview, body.project, body.key, folder)
-    why_not = _why_no_pr(body.project)
+    why_not = _why_no_pr(body.project, body.key)
     return {**out, "can_open": out["can_open"] and not why_not, "why_not": why_not}
 
 
-def _why_no_pr(project: str) -> str | None:
+def _why_no_pr(project: str, key: str | None = None) -> str | None:
     """The hosted site opens PRs only on our sandbox fork, and that fork is the replay's project
-    (webpack-dev-server). A fix for any other project would land in the wrong repo."""
+    (webpack-dev-server). A fix for any other project would land in the wrong repo, and a fix for a package
+    the Sept 8 attack didn't touch has no business there either (the API is public: anyone can send any key)."""
     if LOCAL:
         return "On your machine the fix is a command: chokepoint fix <package>@<version> --write"
     if projects.origin(project) != "replay":
         return ("Sandbox PRs open only for the Sept 8 replay (our fork of webpack-dev-server). For your repo, "
                 "copy the change above, or run chokepoint fix --write on your machine.")
+    if key is not None and key.rpartition("@")[0] not in sept8.COMPROMISED:
+        return "Sandbox PRs open only for the packages poisoned on Sept 8 (debug, chalk and 16 more)."
     if not github_pr._demo_repo()[1]:
         return "Opening PRs is switched off on this server."
     return None
@@ -288,7 +292,7 @@ def fix_open(body: Fix, request: Request):
     _hosted_only()
     if not body.confirm:
         raise HTTPException(400, "opening a PR requires confirm=true (explicit click)")
-    why_not = _why_no_pr(body.project)
+    why_not = _why_no_pr(body.project, body.key)
     if why_not:
         raise HTTPException(403, why_not)
     _limit(request, "pr")

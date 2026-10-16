@@ -328,16 +328,34 @@ def check(
         raise typer.Exit(EXIT_FINDING)
 
 
+REPLAY_IS_HISTORY = ("The Sept 8 replay is an example on webpack-dev-server's history: nothing in it belongs to your "
+                     "repo or your files. Run this inside your own app.")
+
+
+def github_for(project: str) -> tuple[str, str, str]:
+    """(repo, token, path) for a fix PR about `project`: only the app the repo was set up for. Findings from
+    one app must never become a PR on another app's repo, and the replay's never on any."""
+    from chokepoint.cli import config as C
+
+    if is_replay(project):
+        fail(REPLAY_IS_HISTORY)
+    g = C.github()
+    if not (g["repo"] and g["token"]):
+        fail("To open PRs on your repo, run `chokepoint config github` once inside your app "
+             "(your repo + a fine-grained token).")
+    if g["project"] != project:
+        fail(f"Fix PRs are set up for {g['project'] or 'another app'} ({g['repo']}), not {project}. "
+             "Run `chokepoint config github` inside this app to point them at its repo.")
+    return g["repo"], g["token"], g["path"]
+
+
 def _fix_pr(project: str, key: str, yes: bool) -> None:
     """`fix --pr`: the website's PR button, on your own repo with your own token."""
     from rich.prompt import Confirm
 
     from chokepoint.actions import github_pr
-    from chokepoint.cli import config as C
 
-    repo, token, path = C.github()
-    if not (repo and token):
-        fail("To open PRs on your repo, run `chokepoint config github` once (your repo + a fine-grained token).")
+    repo, token, path = github_for(project)
     p = run(github_pr.preview, project, key, state.folder_of(project))
     name, bad = p["key"].rsplit("@", 1)
     if not Opts.json:
@@ -507,6 +525,8 @@ def fix(
 ) -> None:
     """The newest clean version that fits every range, as an npm `overrides` entry."""
     project = current_project()
+    if (pr or write) and is_replay(project):
+        fail(REPLAY_IS_HISTORY)
     if pr:
         _fix_pr(project, key, yes)
         return
@@ -521,6 +541,8 @@ def fix(
         if not Opts.json:
             R.hint(f"chokepoint fix {key} --write", "then: npm install && npm ci")
         return
+    if is_replay(project):
+        fail(REPLAY_IS_HISTORY)
     folder = state.folder_of(project)
     if not folder:
         fail("--write only works for a project scanned from a local folder.")

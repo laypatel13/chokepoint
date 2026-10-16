@@ -220,8 +220,10 @@ It never merges anything: you review and merge.
 - *Repository access:* **Only select repositories** → your repo
 - *Permissions:* **Contents** and **Pull requests** → *Read and write* (nothing else)
 
-**2. Give it to Chokepoint.** It checks the token can write to that repo, refuses broad "classic" tokens, and
-saves it in your keychain (add `--path packages/web` if `package.json` isn't at the root of the repo):
+**2. Give it to Chokepoint, from inside your app's folder.** It checks the token can write to that repo, refuses
+broad "classic" tokens, and saves it in your keychain (add `--path packages/web` if `package.json` isn't at the
+root of the repo). The repo is tied to **this app**: Chokepoint never opens a PR about one app on another app's
+repo, and never from the Sept 8 replay.
 
 ```sh
 chokepoint config github --repo you/your-app
