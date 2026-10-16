@@ -46,7 +46,7 @@ test.describe("story page", () => {
     await expect(page.locator("#how .feat")).toHaveCount(3);
     await expect(page.locator("#graph pre")).toContainText("algo.BFS");
     await expect(page.locator("#limits")).toHaveCount(0);  // removed on purpose
-    await expect(page.locator(".broke")).toContainText("I'm broke");
+    await expect(page.locator(".broke")).toContainText("this runs on free tiers");
     await expect(page.locator("#tl .tl-time svg.flow")).toHaveCount(1);
     expect(await page.locator("body").innerText()).not.toContain("→");  // arrows are icons, never the font-less character
   });
@@ -79,7 +79,7 @@ test.describe("story page", () => {
     await expect(cli.locator(".term")).toContainText("chokepoint nightjar");
     await expect(page.locator(".broke a").first()).toHaveAttribute("href", "#cli");
     await expect(page.locator(".broke a.birdy")).toHaveAttribute("href", "#nightjar");  // the note introduces the bird
-    await expect(page.locator(".broke")).toContainText("This app runs on free-tier servers");
+    await expect(page.locator(".broke")).toContainText("run the CLI on your own machine");
   });
 
   test("every section is consistent: centred icons, alternating backgrounds, aligned examples", async ({ page }) => {

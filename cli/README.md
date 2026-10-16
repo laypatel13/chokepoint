@@ -38,19 +38,31 @@ Or try it without installing anything:
 uvx --python 3.12 --from ckpoint chokepoint
 ```
 
-## Two ways to use it
+## See what happened, then protect your app
 
-| | What it is | Commands |
-|---|---|---|
-| **[1. The replay](#1-the-replay-sept-8-2025)** | The real npm attack of Sept 8, 2025, on a real project's real lockfile. An example to see how Chokepoint works, **no project of yours needed**. Kept completely apart: it never touches your projects, files or repos. | `chokepoint replay …` |
-| **[2. Your own project](#2-your-own-project)** | The real thing: your app, your lockfile, your graph, Nightjar guarding it, fixes and PRs on your repo. | `chokepoint …` inside your app's folder |
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h4><a href="#1-see-what-happened-the-sept-8-replay">1 · See what happened</a></h4>
+      The real npm attack of Sept 8, 2025, replayed on a real project's real lockfile. <b>No project of yours
+      needed</b>, and it never touches your projects, files or repos.<br><br>
+      <code>chokepoint replay …</code>
+    </td>
+    <td width="50%" valign="top">
+      <h4><a href="#2-protect-your-app">2 · Protect your app</a></h4>
+      The real thing: your app, your lockfile, your graph, Nightjar guarding it, and fixes and PRs on your own
+      repo.<br><br>
+      <code>chokepoint …</code> inside your app's folder
+    </td>
+  </tr>
+</table>
 
-Same questions, same answers, two places: everything under `chokepoint replay` is history, everything else
-is about the app you're in.
+Same questions, same answers, two places: everything under `chokepoint replay` is history, everything else is
+about the app you're in.
 
 ---
 
-## 1. The replay: Sept 8, 2025
+## 1. See what happened: the Sept 8 replay
 
 On Sept 8, 2025, one npm maintainer (`@qix`) was phished and 18 of their packages, with about two billion
 weekly downloads, were poisoned for about two hours. The replay is **webpack-dev-server exactly as it stood
@@ -114,11 +126,11 @@ chokepoint replay map
 | `chokepoint replay report` | A Markdown report of the replay. |
 | `chokepoint replay map` | The step-by-step timeline and graph, in your browser. |
 
-Want to see Nightjar handle the attack **in your own app** instead? That's the fire drill, in part 2.
+Want to see Nightjar handle the attack **in your own app** instead? That's the fire drill, in [part 2](#2-protect-your-app).
 
 ---
 
-## 2. Your own project
+## 2. Protect your app
 
 Everything here works on **the app you're in**, the way `git` finds your repo: any folder with a
 `package-lock.json`. When your lockfile changes, the graph rebuilds itself. Outside any project, Chokepoint

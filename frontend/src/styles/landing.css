@@ -270,7 +270,8 @@ section[id] { scroll-margin-top: 72px; }
 
 .broke { margin-top: 16px; display: flex; gap: 14px; align-items: flex-start; padding: 16px 20px; border-radius: var(--r-xl);
   border: 1px dashed rgb(var(--c-border-strong)); background: rgb(var(--c-highlight) / .05); }
-.broke-emoji { font-size: 22px; line-height: 1.3; }
+.broke-ic { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px;
+  background: rgb(var(--c-surface-2)); color: rgb(var(--c-ink-2)); }
 .broke p { margin: 0; color: rgb(var(--c-ink-2)); font-size: 14.5px; line-height: 1.65; }
 .broke b { color: rgb(var(--c-ink)); }
 .birdy { white-space: nowrap; }

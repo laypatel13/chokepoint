@@ -83,10 +83,11 @@ export function RealProjects() {
         </div>
 
         <aside className="broke reveal">
-          <span className="broke-emoji" aria-hidden="true">🫠</span>
-          <p><b>Honest note: I'm broke.</b> This app runs on free-tier servers and a free API key, so if you're lucky,
-            you'll catch it working. Want to see it actually work? <a href="#cli">Try the CLI on your own machine</a>:
-            no limits, no waiting, nothing leaves your laptop, and you get access to our agent birdy,{" "}
+          <span className="broke-ic" aria-hidden="true"><Icon name="server" /></span>
+          <p><b>Honest note: this runs on free tiers.</b> Free servers and a free AI key keep the lights on, so the first
+            visit can take a moment to wake up, and very busy minutes can hit the limits. For the full experience,{" "}
+            <a href="#cli">run the CLI on your own machine</a>: no limits, no waiting, nothing leaves your laptop, and our
+            agent birdy watches your app for you:{" "}
             <a href="#nightjar" className="birdy">Nightjar<NightjarBird state="watching" px={1.5} label="Nightjar, the watcher agent" /></a></p>
         </aside>
       </div>
