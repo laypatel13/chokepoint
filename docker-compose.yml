@@ -19,6 +19,7 @@ services:
       FALKORDB_PORT: "6379"
       CHOKEPOINT_CACHE: /app/.cache/http
       CHOKEPOINT_TRUSTED_PROXIES: "0"   # nothing in front of it here
+      CHOKEPOINT_CLIENT_IP_HEADER: ""
     ports:
       - "8000:8000"
     volumes:

@@ -7,6 +7,7 @@ the outside world. In memory: one process on the free tier, and a restart forgiv
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 import time
@@ -41,10 +42,36 @@ pr_lock = threading.Lock()  # one PR at a time: two quick clicks must not race t
 # it is whatever the visitor typed and can't be used to dodge the limits. With no proxy (0, the default) the
 # header is ignored entirely: it would be the visitor's own words.
 TRUSTED_PROXIES = int(os.getenv("CHOKEPOINT_TRUSTED_PROXIES", "0"))
+# A CDN in front of the proxy (Render puts Cloudflare there) makes the last X-Forwarded-For entry one of the
+# CDN's own servers, a different one per request. The CDN's own client-address header is right instead:
+# Cloudflare always overwrites CF-Connecting-IP, so a visitor can't set it. Empty: not behind such a CDN.
+CLIENT_IP_HEADER = os.getenv("CHOKEPOINT_CLIENT_IP_HEADER", "").lower()
+
+log = logging.getLogger("chokepoint.limits")
+_described = 0
+
+
+def _describe(request: Request) -> None:
+    """Logs the shape of the proxy headers for the first few requests (header names and counts, never an
+    address), so a deploy can confirm which header carries the visitor's address."""
+    global _described
+    if _described >= 3:
+        return
+    _described += 1
+    hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+    ip_headers = sorted(h for h in request.headers if "ip" in h or "forwarded" in h or h.startswith("cf-"))
+    cdn = request.headers.get(CLIENT_IP_HEADER) if CLIENT_IP_HEADER else None
+    log.warning("proxy headers: %s; x-forwarded-for has %d entries; %s=%s; it is entry %s", ip_headers, len(hops),
+                CLIENT_IP_HEADER or "(no CDN header set)", "present" if cdn else "absent",
+                [i for i, h in enumerate(hops) if h == cdn] if cdn else "-")
 
 
 def visitor(request: Request) -> str:
-    """The visitor's real address, as seen by our own proxy (not a header the visitor can set)."""
+    """The visitor's real address, as seen by our own proxy or CDN (not a header the visitor can set)."""
+    if TRUSTED_PROXIES or CLIENT_IP_HEADER:
+        _describe(request)
+    if CLIENT_IP_HEADER and (cdn := request.headers.get(CLIENT_IP_HEADER, "").strip()):
+        return cdn
     hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
     if TRUSTED_PROXIES and len(hops) >= TRUSTED_PROXIES:
         return hops[-TRUSTED_PROXIES]

@@ -139,3 +139,16 @@ def test_no_proxy_ignores_forwarded_for(monkeypatch):
     monkeypatch.setattr(limits, "TRUSTED_PROXIES", 0)
     fake = Request({"type": "http", "headers": [(b"x-forwarded-for", b"6.6.6.6")], "client": ("10.0.0.9", 1)})
     assert limits.visitor(fake) == "10.0.0.9"
+
+
+def test_behind_a_cdn_the_cdn_header_names_the_visitor(monkeypatch):
+    """Render: Cloudflare -> Render's proxy -> app. The last X-Forwarded-For entry is a Cloudflare server
+    (a new one per request); CF-Connecting-IP is the visitor."""
+    from starlette.requests import Request
+
+    from chokepoint.api import limits
+    monkeypatch.setattr(limits, "TRUSTED_PROXIES", 1)
+    monkeypatch.setattr(limits, "CLIENT_IP_HEADER", "cf-connecting-ip")
+    req = Request({"type": "http", "client": ("10.0.0.9", 1), "headers": [
+        (b"x-forwarded-for", b"6.6.6.6, 203.0.113.7, 172.70.1.1"), (b"cf-connecting-ip", b"203.0.113.7")]})
+    assert limits.visitor(req) == "203.0.113.7"

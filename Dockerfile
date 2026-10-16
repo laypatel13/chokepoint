@@ -22,6 +22,8 @@ EXPOSE 8000
 # Free-tier armour: a slow LLM can't hold a worker for long, and past 64 open connections the server answers
 # 503 at once instead of queueing until it falls over. Visitor addresses come from limits.visitor().
 ENV LLM_TIMEOUT=20
-# Render (and most hosts) put one proxy in front; docker-compose, with none, sets 0.
+# Render (and most hosts) put one proxy in front; docker-compose, with none, sets 0. Render also puts
+# Cloudflare in front of that proxy, whose CF-Connecting-IP header is the visitor's real address.
 ENV CHOKEPOINT_TRUSTED_PROXIES=1
+ENV CHOKEPOINT_CLIENT_IP_HEADER=cf-connecting-ip
 CMD ["sh", "-c", "python backend/scripts/seed.py && uvicorn chokepoint.api.app:app --host 0.0.0.0 --port ${PORT:-8000} --limit-concurrency 64 --timeout-keep-alive 5"]
