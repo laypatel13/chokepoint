@@ -200,11 +200,10 @@ through thousands of links, and in a graph database it's one query. Take FalkorD
 answered at all: no advisory database knows the answer, because the answer is the *shape* of your dependencies.
 
 ```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 34, "padding": 8}, "themeVariables": {"fontSize": "13px"}}}%%
 flowchart LR
     lock["package-lock.json"] --> db
     reg["npm + OSV"] --> db
-    db[("FalkorDB<br/>graph")] --> q["Cypher · BFS<br/>betweenness · PageRank"]
+    db[("FalkorDB<br/>graph")] --> q["Cypher, BFS,<br/>betweenness, PageRank"]
     q --> ui["website + CLI"]
     q --> agent["agent<br/>(MCP tools)"]
     q --> nj["Nightjar"]
