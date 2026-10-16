@@ -288,8 +288,13 @@ def _why_no_pr(project: str, key: str | None = None) -> str | None:
     if projects.origin(project) != "replay":
         return ("Sandbox PRs open only for the Sept 8 replay (our fork of webpack-dev-server). For your repo, "
                 "copy the change above, or run chokepoint fix --write on your machine.")
-    if key is not None and key.rpartition("@")[0] not in sept8.COMPROMISED:
-        return "Sandbox PRs open only for the packages poisoned on Sept 8 (debug, chalk and 16 more)."
+    if key is not None:
+        name, _, version = key.rpartition("@")
+        if name not in sept8.COMPROMISED:
+            return "Sandbox PRs open only for the packages poisoned on Sept 8 (debug, chalk and 16 more)."
+        # exactly the poisoned version, or one the replay really has: no other text can reach the PR
+        if version != sept8.COMPROMISED[name] and not T.is_installed(project, key):
+            return f"Sandbox PRs open only for {name}@{sept8.COMPROMISED[name]} or a version the replay has installed."
     if not github_pr._demo_repo()[1]:
         return "Opening PRs is switched off on this server."
     return None

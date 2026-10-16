@@ -12,6 +12,7 @@ Each tool returns a JSON-able dict with:
 
 from __future__ import annotations
 
+import re
 import time
 from typing import Any
 
@@ -74,11 +75,27 @@ def split_key(key: str) -> tuple[str, str | None]:
     return head, tail
 
 
+# What an npm version can look like (semver: 1.2.3, 1.2.3-beta.1, 1.2.3+build). Anything else is refused before
+# it can reach a query, a file or a pull request.
+_VERSION = re.compile(r"^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$")
+
+
 def _require_version(key: str) -> tuple[str, str]:
     name, version = split_key(key)
     if not version:
         raise ToolError(f"need an exact version like '{name}@1.2.3', got '{key}'")
+    if not _VERSION.match(version):
+        raise ToolError(f"'{version}' isn't an npm version (like 1.2.3)")
     return name, version
+
+
+def is_installed(project: str, key: str) -> bool:
+    """Is this exact name@version in the project's graph?"""
+    t = Trace(project)
+    try:
+        return bool(t.run("HAS_VERSION", {"key": key})[0]["n"])
+    except ResponseError:
+        return False
 
 
 def _project(t: Trace) -> dict:

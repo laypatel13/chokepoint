@@ -91,9 +91,23 @@ def test_hosted_prs_only_for_the_replay(monkeypatch):
     assert "only for the Sept 8 replay" in A._why_no_pr("socketio/socket.io")
     # the API is public: a hand-made request can't pin some other package on the fork
     rp = "webpack/webpack-dev-server@fa9195c"
+    monkeypatch.setattr(A.T, "is_installed", lambda project, key: key == "debug@4.4.1")  # what the replay has
     assert A._why_no_pr(rp, "debug@4.4.2") is None and A._why_no_pr(rp, "debug@4.4.1") is None
     assert "poisoned on Sept 8" in A._why_no_pr(rp, "left-pad@1.0.0")
     assert "poisoned on Sept 8" in A._why_no_pr(rp, "@evil/chalk@5.6.1")
+    # ...nor put its own words in the PR through the version
+    for sneaky in ("debug@4.4.2 [claim your prize](https://evil.example)", "debug@9.9.9", "debug@4.4.2\nhi"):
+        assert A._why_no_pr(rp, sneaky), sneaky
+
+
+def test_a_version_is_only_ever_a_version():
+    import pytest
+
+    from chokepoint import tools as T
+    assert T._require_version("debug@4.4.2-beta.1+build") == ("debug", "4.4.2-beta.1+build")
+    for bad in ("debug@4.4.2 [x](https://evil.example)", "debug@<script>", "debug@4.4.2\nhi", "debug@" + "1" * 80):
+        with pytest.raises(T.ToolError):
+            T._require_version(bad)
 
 
 def test_hosted_armour(monkeypatch):
