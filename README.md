@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <b>Live site:</b> coming soon · <b>Demo video:</b> coming soon · <a href="cli/README.md"><b>CLI guide</b></a>
+  <b>Live site:</b> <a href="https://chokepoint.onrender.com">chokepoint.onrender.com</a> · <b>Video:</b> coming soon · <a href="cli/README.md"><b>CLI guide</b></a>
 </p>
 
 <p align="center"><img src="docs/images/story.jpg" alt="The Chokepoint story page: 'One phished login. Eighteen poisoned packages. 74 minutes of silence.' with a living graph behind the headline"></p>
@@ -77,7 +77,8 @@ On the real Sept 8 timeline, Nightjar would have raised its first **ALERT at 13:
 
 ## Try it
 
-**1. On the website.** Step through the Sept 8 attack on real data, then scan any public GitHub repo. *(Link coming soon.)*
+**1. On the website.** Step through the Sept 8 attack on real data, then scan any public GitHub repo: **[chokepoint.onrender.com](https://chokepoint.onrender.com)**. It runs on free
+servers, so the first visit after a quiet spell can take up to a minute to wake up.
 
 **2. On your own machine.** The full tool, with no limits, and nothing leaves your laptop. Install it (the
 package is called `ckpoint`; the command is `chokepoint`):

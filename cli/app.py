@@ -258,7 +258,7 @@ def list_projects() -> None:
 
 
 @app.command(rich_help_panel="Start")
-def use(project: str = typer.Argument(..., help="A name from `chokepoint projects`.")) -> None:
+def use(project: str = typer.Argument(..., metavar="PROJECT", help="A name from `chokepoint projects`, e.g. mochajs/mocha")) -> None:
     """Make a project the default when you're outside any project folder."""
     if is_replay(project):
         fail("The Sept 8 replay has its own commands: `chokepoint replay who`, `chokepoint replay check …`.")
@@ -301,7 +301,7 @@ def who(
 
 @app.command(rich_help_panel="Questions")
 def check(
-    key: str = typer.Argument(..., help="package@version, e.g. debug@4.4.2"),
+    key: str = typer.Argument(..., metavar="PKG@VERSION", help="package@version, e.g. debug@4.4.2"),
     fail_on: str = typer.Option("installed", "--fail-on", help="When to exit 1 (for CI): installed, prod (only if it ships "
                                 "to production) or never."),
 ) -> None:
@@ -437,7 +437,7 @@ def _diff(project: str, old: str) -> dict:
 
 
 @app.command(rich_help_panel="Questions")
-def investigate(key: str = typer.Argument(..., help="package@version, e.g. debug@4.4.2")) -> None:
+def investigate(key: str = typer.Argument(..., metavar="PKG@VERSION", help="package@version, e.g. debug@4.4.2")) -> None:
     """Every check on one version at once: in the project? fresh install? fix? who can publish it?"""
     project = current_project()
     r = run(T.investigate, project, key)
@@ -460,7 +460,7 @@ def investigate(key: str = typer.Argument(..., help="package@version, e.g. debug
 
 
 @app.command(rich_help_panel="Questions")
-def why(name: str = typer.Argument(..., help="Package name, e.g. debug")) -> None:
+def why(name: str = typer.Argument(..., metavar="PACKAGE", help="Package name, e.g. debug")) -> None:
     """Every road a package takes into your project (all installed versions)."""
     project = current_project()
     found = run(T.installed_versions, project, name)
@@ -481,7 +481,7 @@ def why(name: str = typer.Argument(..., help="Package name, e.g. debug")) -> Non
 
 
 @app.command(rich_help_panel="Questions")
-def saved(key: str = typer.Argument(..., help="package@version of the bad release, e.g. debug@4.4.2")) -> None:
+def saved(key: str = typer.Argument(..., metavar="PKG@VERSION", help="package@version of the bad release, e.g. debug@4.4.2")) -> None:
     """Would a fresh `npm install` have pulled this version? Declared ranges vs what the lockfile pins."""
     r = run(T.lockfile_saved_you, current_project(), key)
 
@@ -500,7 +500,7 @@ def saved(key: str = typer.Argument(..., help="package@version of the bad releas
 
 @app.command(rich_help_panel="Questions")
 def fix(
-    key: str = typer.Argument(..., help="package@version to move away from, e.g. debug@4.4.2"),
+    key: str = typer.Argument(..., metavar="PKG@VERSION", help="package@version to move away from, e.g. debug@4.4.2"),
     write: bool = typer.Option(False, "--write", help="Add the override to this project's package.json."),
     pr: bool = typer.Option(False, "--pr", help="Open a fix PR on your repo instead (set it up once: chokepoint config github)."),
     yes: bool = typer.Option(False, "--yes", "-y", help="With --pr: don't ask before opening it."),

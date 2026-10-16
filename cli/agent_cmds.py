@@ -301,7 +301,7 @@ def _user_pr_opener(project: str):
 
 @app.command(rich_help_panel="Ask")
 def ask(
-    question: str = typer.Argument(..., help='e.g. "is debug@4.4.2 in my app?" or "what if @qix gets phished?"'),
+    question: str = typer.Argument(..., metavar='"QUESTION"', help='e.g. "is debug@4.4.2 in my app?"'),
     stdio: bool = typer.Option(False, "--stdio", help="Run the MCP server as a separate process (stdio) instead of in-memory."),
 ) -> None:
     """Ask in plain words. The LLM picks a tool from the MCP server's tool list; the graph answers."""
@@ -682,11 +682,9 @@ def report(out_file: Optional[Path] = typer.Option(None, "--out", "-o", help="Wr
 
 
 @app.command(rich_help_panel="Share")
-def share(repo: str = typer.Argument(..., help="A PUBLIC GitHub repo, owner/repo.")) -> None:
+def share(repo: str = typer.Argument(..., metavar="OWNER/REPO", help="A PUBLIC GitHub repo, e.g. axios/axios")) -> None:
     """Ask the hosted Chokepoint site to scan a public repo. Uploads nothing from your machine: only the repo name."""
-    site = os.getenv("CHOKEPOINT_SITE") or C.load().get("site", {}).get("url")
-    if not site:
-        fail("No hosted site configured. Set CHOKEPOINT_SITE=https://… (the site isn't deployed yet).")
+    site = os.getenv("CHOKEPOINT_SITE") or C.load().get("site", {}).get("url") or "https://chokepoint.onrender.com"
     name = run(P.normalize_repo, repo)
     try:
         r = httpx.post(f"{site.rstrip('/')}/api/scan", json={"repo": name}, timeout=30)
