@@ -77,17 +77,49 @@ On the real Sept 8 timeline, Nightjar would have raised its first **ALERT at 13:
 
 ## Try it
 
-**1. On the website.** Step through the Sept 8 attack on real data, then scan any public GitHub repo: **[chokepoint.onrender.com](https://chokepoint.onrender.com)**. It runs on free
-servers, so the first visit after a quiet spell can take up to a minute to wake up.
+Chokepoint has two sides, kept apart everywhere (the website, the CLI, Nightjar's memory):
 
-**2. On your own machine.** The full tool, with no limits, and nothing leaves your laptop. Install it (the
-package is called `ckpoint`; the command is `chokepoint`):
+| | What it is |
+|---|---|
+| **The replay** | The real Sept 8, 2025 attack on a real project's real lockfile: an example to see how it works, no project of yours needed. It never touches your projects, files or repos. |
+| **Your own project** | The real thing: your app, your graph, Nightjar guarding it, fixes and PRs on your repo. |
+
+It runs on free servers, so the first visit to the website after a quiet spell can take up to a minute to wake up.
+
+### 1. The replay: Sept 8, 2025
+
+**On the website:** open **[chokepoint.onrender.com](https://chokepoint.onrender.com)** and step through the
+attack, moment by moment.
+
+**In your terminal:** install the CLI (the package is `ckpoint`; the command is `chokepoint`):
 
 ```sh
 pipx install --python 3.12 ckpoint
 ```
 
-Then go to your app's folder and say hello:
+Then replay it, from any folder:
+
+```sh
+chokepoint replay
+```
+
+Every replay command is in the [CLI guide, part 1](cli/README.md#1-the-replay-sept-8-2025).
+
+#### The 13:13 moment, in the app
+
+<p align="center"><img src="docs/images/app.jpg" alt="The Chokepoint app at 13:13 on Sept 8: the advisory database says 'Nothing yet' while Chokepoint already shows Nightjar's ALERT, with the attack paths lit up in the graph"></p>
+
+On the left, what an advisory-based tool knew at 13:13: nothing. On the right, what the graph and Nightjar knew:
+`chalk@5.6.1` is the third release from `@qix` in 54 seconds, and the app would take it. Below, the graph
+lights up who can publish into the app (yellow) and the poisoned versions it would pull in (red).
+
+<p align="center"><img src="docs/images/app-nightjar-loop.png" width="400" alt="Nightjar's loop for chalk@5.6.1: watch, investigate, decide (ALERT, no LLM), act (pin chalk to 5.4.1), remember"></p>
+<p align="center"><sub>Every step of Nightjar's decision, from the real data: watch, investigate, decide, act, remember.</sub></p>
+
+### 2. Your own project
+
+**On your machine** (the full tool, no limits, nothing leaves your laptop): go to your app's folder and say
+hello.
 
 ```sh
 chokepoint
@@ -95,41 +127,45 @@ chokepoint
 
 <p align="center"><img src="docs/images/cli-home.png" width="680" alt="The chokepoint home screen: Nightjar, the project's size, its riskiest account, and the commands to run next"></p>
 
-Everything about the command line is in the **[CLI guide](cli/README.md)**.
+Then ask who can publish code into it:
 
-**3. Your own copy of the website.** One command with Docker (see [Run it yourself](#run-it-yourself)).
+```sh
+chokepoint who
+```
 
-### The 13:13 moment, in the app
+And let Nightjar guard it, or see it handle the Sept 8 attack in your own app first with a fire drill:
 
-<p align="center"><img src="docs/images/app.jpg" alt="The Chokepoint app at 13:13 on Sept 8: the advisory database says 'Nothing yet' while Chokepoint already shows Nightjar's ALERT, with the attack paths lit up in the graph"></p>
+```sh
+chokepoint nightjar --drill
+```
 
-On the left, what an advisory-based tool knew at 13:13: nothing. On the right, what the graph and Nightjar knew:
-`chalk@5.6.1` is the third release from `@qix` in 54 seconds, and your app would take it. Below, the graph
-lights up who can publish into the app (yellow) and the poisoned versions it would pull in (red).
+Every command is in the [CLI guide, part 2](cli/README.md#2-your-own-project).
 
-<p align="center"><img src="docs/images/app-nightjar-loop.png" width="400" alt="Nightjar's loop for chalk@5.6.1: watch, investigate, decide (ALERT, no LLM), act (pin chalk to 5.4.1), remember"></p>
-<p align="center"><sub>Every step of Nightjar's decision, from the real data: watch, investigate, decide, act, remember.</sub></p>
+**On the website:** scan any **public** GitHub repo from the box on the home page, and get a link to share.
+
+**Your own copy of the website:** one command with Docker (see [Run it yourself](#run-it-yourself)).
 
 ## How it works
 
-```
- your package-lock.json
-          │   every installed package, and which one pulls in which
-          ▼
- npm + OSV                  who can publish each package (usernames only) and known advisories
-          │
-          ▼
- FalkorDB graph             one graph per project: your app → packages → versions ← people
-          │
-          ▼
- graph questions            Cypher queries and graph algorithms (BFS, betweenness, PageRank)
-          │
-     ┌────┴───────────────┬───────────────────────┐
-     ▼                    ▼                       ▼
- the website / CLI    the agent (MCP)          Nightjar
- answers + the        your LLM picks a         watches npm, decides by rules,
- graph lit up         tool, the graph          pins, opens PRs, remembers
-                      answers
+```mermaid
+flowchart TD
+    lock["<b>your package-lock.json</b><br/>every installed package, and which one pulls in which"]
+    reg["<b>npm + OSV</b><br/>who can publish each package (usernames only) and known advisories"]
+    db[("<b>FalkorDB graph</b><br/>one per project: your app → packages → versions ← people")]
+    q["<b>graph questions</b><br/>Cypher queries and graph algorithms<br/>(BFS, betweenness, PageRank)"]
+    ui["<b>the website / CLI</b><br/>answers, with the graph lit up"]
+    agent["<b>the agent (MCP)</b><br/>your LLM picks a tool, the graph answers"]
+    nj["<b>Nightjar</b><br/>watches npm, decides by rules,<br/>pins, opens PRs"]
+    mem[("<b>memory graph</b><br/>alerts and decisions, per project")]
+
+    lock --> db
+    reg --> db
+    db --> q
+    q --> ui
+    q --> agent
+    q --> nj
+    nj -- remembers --> mem
+    mem -- recall --> agent
 ```
 
 **Why a graph?** "Who can poison me?" joins *people* to *everything downstream of everything you depend on*.
