@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,13 @@ def get(namespace: str, key: str, max_age: float | None = None) -> Any | None:
 def put(namespace: str, key: str, value: Any) -> None:
     p = _path(namespace, key)
     p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(value))
-    tmp.replace(p)
+    # A temp file of its own per writer: two requests saving the same entry at once must not share one
+    # (the second rename would find it gone). The rename itself is atomic, so readers see old or new.
+    fd, tmp = tempfile.mkstemp(dir=p.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps(value))
+        os.replace(tmp, p)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise

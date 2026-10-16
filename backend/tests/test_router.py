@@ -111,8 +111,9 @@ def test_hosted_armour(monkeypatch):
     junk = client.post("/api/tool/explain_path", json={"project": "x", "args": {"key": "a" * 5000}})
     assert junk.status_code == 422
     assert client.get("/api/memory", params={"project": "anything-at-all"}).status_code == 404  # would create a graph
-    assert client.get("/api/health").headers["x-frame-options"] == "DENY"
-    assert client.get("/docs").status_code == 404  # no public API explorer on the hosted site
+    docs = client.get("/docs")
+    assert docs.status_code == 404  # no public API explorer on the hosted site
+    assert docs.headers["x-frame-options"] == "DENY"  # security headers on every response, errors too
 
 
 def test_heavy_work_is_capped(monkeypatch):

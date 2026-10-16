@@ -28,7 +28,7 @@ export function ReplayTimeline({ replay, onGo }: { replay: ReplayState; onGo: (i
     if (!glider.current || !stop) return;
     const to = { x: stop.offsetLeft - 4, width: stop.offsetWidth, autoAlpha: 1 };  // the glider's own left is 4px
     if (animate && motionOn() && glided.current) gsap.to(glider.current, { ...to, duration: 0.55, ease: "power3.inOut", overwrite: "auto" });
-    else gsap.set(glider.current, to);
+    else gsap.set(glider.current, { ...to, overwrite: true });  // replaces a glide still on its way
     glided.current = true;
   };
 
@@ -66,10 +66,16 @@ export function ReplayTimeline({ replay, onGo }: { replay: ReplayState; onGo: (i
     });
   }, [data, step, pastUpTo]);
 
+  // The glider follows its card whenever the moments change size, not only on a window resize: after one,
+  // the layout keeps settling (a scrollbar comes or goes, the sidebar reflows) and the cards move again.
   useEffect(() => {
-    const onResize = () => { if (step !== null) moveGlider(step, false); };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    const ol = list.current;
+    if (!ol || step === null || typeof ResizeObserver === "undefined") return;
+    let first = true;  // it reports once on observe: the glide that just started is already right
+    const follow = new ResizeObserver(() => { if (first) first = false; else moveGlider(step, false); });
+    follow.observe(ol);
+    ol.querySelectorAll(".stop").forEach((card) => follow.observe(card));
+    return () => follow.disconnect();
   }, [step]);
 
   const stops = data?.stops ?? [];

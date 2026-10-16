@@ -86,6 +86,7 @@ def test_replay_alerts_74_minutes_before_the_first_advisory():
     assert {x["key"]: x["level"] for x in releases}["supports-color@10.2.1"] == "INFO"  # outside every range
 
 
+@pytest.mark.skipif(not _seeded(RP), reason="FalkorDB with the seeded replay project not available")
 def test_website_replay_scores_like_the_cli_replay():
     """The website runs the replay without memory; it must still reach the CLI's verdicts."""
     from chokepoint.watch import replay
@@ -107,6 +108,17 @@ def test_cache_entries_expire(tmp_path, monkeypatch):
     os.utime(cache._path("npm", "debug"), (old, old))
     assert cache.get("npm", "debug", max_age=60) is None
     assert cache.get("npm", "debug") == {"latest": "4.4.1"}  # still there as a fallback when npm is down
+
+
+def test_cache_survives_writers_racing_on_one_entry(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from chokepoint.ingest import cache
+    monkeypatch.setattr(cache, "CACHE_DIR", tmp_path)
+    with ThreadPoolExecutor(8) as pool:
+        list(pool.map(lambda i: cache.put("osv-q", "debug@4.4.1", [i]), range(200)))
+    assert cache.get("osv-q", "debug@4.4.1") in ([i] for i in range(200))
+    assert not list(tmp_path.rglob("*.tmp"))  # no temp files left behind
 
 
 def test_act_pins_only_the_bad_version_within_its_major():
