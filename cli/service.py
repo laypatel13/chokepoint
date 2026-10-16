@@ -22,7 +22,8 @@ def _id(project: str) -> str:
 
 
 def _argv(project: str) -> list[str]:
-    return [sys.executable, "-m", "chokepoint.cli", "--project", project, "nightjar"]
+    # -P: it runs in your project folder; a stray file there must never be imported as code.
+    return [sys.executable, "-P", "-m", "chokepoint.cli", "--project", project, "nightjar"]
 
 
 def log_file(project: str) -> Path:

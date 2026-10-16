@@ -96,7 +96,7 @@ def ask(project: str, question: str) -> dict[str, Any]:
                 tool = calls[0].function.name
                 args = json.loads(calls[0].function.arguments or "{}")
         except Exception as e:  # 429, timeout, provider down: degrade, never error
-            out["llm_error"] = f"{type(e).__name__}: {e}"[:200]
+            out["llm_error"] = llm.error_text(e)
             log.warning("LLM tool pick failed: %s", e)
 
     if tool is None:
@@ -127,7 +127,7 @@ def ask(project: str, question: str) -> dict[str, Any]:
             if answer:
                 out["mode"] = "llm"
         except Exception as e:
-            out["llm_error"] = f"{type(e).__name__}: {e}"[:200]
+            out["llm_error"] = llm.error_text(e)
             log.warning("LLM explain failed: %s", e)
 
     out.update(tool=tool, args=args, answer=answer or result["summary"], result=result,

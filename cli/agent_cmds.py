@@ -88,10 +88,13 @@ def _test_llm() -> tuple[bool, str]:
         return ok, (f"tool calling works ({time.time() - t0:.1f}s)" if ok else
                     "the model answered but didn't call the tool: `ask` will use keyword routing, the model still words answers")
     except Exception as e:
-        return False, f"{type(e).__name__}: {str(e)[:140]}"
+        return False, llm.error_text(e, 160)
 
 
 def _save_llm(provider: str, base_url: str, model: str, key: str | None, effort: str | None = None) -> None:
+    from chokepoint.agent import llm
+    if why := llm.insecure(base_url):
+        fail(f"Not saved: {why}.")
     if key:
         if not C.set_key(provider, key):
             R.out.print("[yellow]No OS keychain available.[/] Set CHOKEPOINT_LLM_API_KEY in your environment instead.")

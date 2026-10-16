@@ -21,6 +21,9 @@ import time
 from typing import Any
 
 from chokepoint.agent import llm, prompts
+
+# Secrets a child process never needs.
+SECRET_ENV = {"LLM_API_KEY", "CHOKEPOINT_LLM_API_KEY", "CHOKEPOINT_GITHUB_TOKEN", "GITHUB_TOKEN"}
 from chokepoint.agent.loop import _for_llm
 from chokepoint.agent.router import follow_up, route, stop_reason
 
@@ -71,7 +74,10 @@ def _server_params():
     from mcp.client.stdio import StdioServerParameters
 
     # the server process must use the same graph backend and data as this one
-    return StdioServerParameters(command=sys.executable, args=["-m", "chokepoint.mcp_server"], env=dict(os.environ))
+    # The server only needs the graph settings: your LLM key and GitHub token stay out of its environment.
+    # -P: don't put the current folder on the import path, or a file named httpx.py in a cloned repo would run.
+    env = {k: v for k, v in os.environ.items() if k not in SECRET_ENV}
+    return StdioServerParameters(command=sys.executable, args=["-P", "-m", "chokepoint.mcp_server"], env=env)
 
 
 async def ask_async(project: str, question: str, stdio: bool = False, use_llm: bool = True) -> dict[str, Any]:
@@ -103,7 +109,7 @@ async def ask_async(project: str, question: str, stdio: bool = False, use_llm: b
                 if calls and calls[0].function.name in names:
                     tool, args = calls[0].function.name, json.loads(calls[0].function.arguments or "{}")
             except Exception as e:  # 429, timeout, model without tool calling: degrade, never fail
-                out["llm_error"] = f"{type(e).__name__}: {e}"[:200]
+                out["llm_error"] = llm.error_text(e)
                 log.warning("LLM tool pick failed: %s", e)
 
         out["routed_by"] = "llm" if tool else "rules"
@@ -149,7 +155,7 @@ async def ask_async(project: str, question: str, stdio: bool = False, use_llm: b
             if answer:
                 out["mode"] = "llm"
         except Exception as e:
-            out["llm_error"] = f"{type(e).__name__}: {e}"[:200]
+            out["llm_error"] = llm.error_text(e)
 
     plain = " ".join(s["summary"] for s in steps) + (f" {out['stopped']}" if out.get("stopped") else "")
     out.update(tool=tool, args=args, answer=answer or plain, result=result,

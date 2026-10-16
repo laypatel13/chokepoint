@@ -40,9 +40,17 @@ app = FastAPI(title="Chokepoint", docs_url=None if not LOCAL else "/docs", redoc
 MAX_BODY = 64 * 1024  # no legitimate request is bigger; a huge one must not eat the free server's memory
 
 
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
+
+
 @app.middleware("http")
 async def _armour(request: Request, call_next):
-    """Body-size cap and standard security headers on every response."""
+    """Body-size cap and standard security headers on every response. On your machine, also: answer only
+    requests addressed to localhost, so a web page can't point its own domain at it (DNS rebinding) and read
+    your projects, or spend your LLM key."""
+    if LOCAL and (request.url.hostname or "").lower() not in LOCAL_HOSTS:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "chokepoint map only answers on localhost."}, status_code=403)
     if request.method in ("POST", "PUT", "PATCH"):
         size = request.headers.get("content-length")
         if size is None or not size.isdigit() or int(size) > MAX_BODY:

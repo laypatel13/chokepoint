@@ -1,6 +1,6 @@
 [project]
 name = "ckpoint"  # the PyPI name (`chokepoint` is taken there); the command is `chokepoint`
-version = "0.1.0"
+version = "0.1.1"
 description = "Who can poison your app? Maps every npm account that can publish code into your project, watches their releases, and acts before any advisory exists. Runs locally on an embedded FalkorDB graph."
 readme = "cli/README.md"  # the PyPI page: the CLI guide
 requires-python = ">=3.11"

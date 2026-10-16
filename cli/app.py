@@ -25,6 +25,7 @@ from chokepoint.graph.load import load_project
 
 app = typer.Typer(
     add_completion=False, rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,  # a crash must never print a token held in a local variable
     help="Who can poison your app? Map every npm account that can publish code into your project, "
          "and how each package got in. Runs locally; the graph does the reasoning.",
 )
@@ -602,8 +603,12 @@ def doctor() -> None:
         except httpx.HTTPError as e:
             line(False, label, type(e).__name__)
     llm = os.getenv("LLM_BASE_URL")
-    detail = f"{os.getenv('LLM_MODEL')} · {llm}" if llm else "none: everything works on rules; `chokepoint setup` adds one (optional)"
-    R.out.print(f"{'[green]✓[/]' if llm else '[dim]–[/]'} LLM [dim]{escape(detail)}[/]")
+    from chokepoint.agent.llm import insecure
+    if llm and (why := insecure(llm)):
+        R.out.print(f"[red]✗[/] LLM [dim]{escape(why)}; it is switched off until then[/]")
+    else:
+        detail = f"{os.getenv('LLM_MODEL')} · {llm}" if llm else "none: everything works on rules; `chokepoint setup` adds one (optional)"
+        R.out.print(f"{'[green]✓[/]' if llm else '[dim]–[/]'} LLM [dim]{escape(detail)}[/]")
     R.out.print(f"[dim]cache: {escape(os.getenv('CHOKEPOINT_CACHE', ''))}[/]")
     if not ok:
         raise typer.Exit(EXIT_ENV)

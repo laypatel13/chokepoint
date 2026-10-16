@@ -183,4 +183,4 @@ def write(project: str, r: Release, level: str, action: str, use_llm: bool = Tru
         got = asyncio.run(_investigate(project, r, level, action))
         return {**base, **got, "by": llm.model(), "ms": round((time.perf_counter() - started) * 1000)}
     except Exception as e:
-        return {**base, "error": f"{type(e).__name__}: {e}"[:200], "ms": round((time.perf_counter() - started) * 1000)}
+        return {**base, "error": llm.error_text(e), "ms": round((time.perf_counter() - started) * 1000)}

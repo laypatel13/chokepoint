@@ -112,7 +112,6 @@ def recall(project: str, limit: int = 20) -> dict:
 
 
 if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv()
+    # No .env from the current folder: the caller (`chokepoint ask --stdio`, Claude Desktop, Cursor) passes the
+    # environment it wants. A .env in a cloned repo must not be able to redirect anything.
     mcp.run()
