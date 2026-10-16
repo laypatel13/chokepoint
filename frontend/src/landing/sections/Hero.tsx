@@ -8,7 +8,7 @@ export function Hero() {
       <div className="glow" aria-hidden="true" />
       <HeroGraph />
       <div className="hero-inner">
-        <p className="eyebrow rise"><Icon name="shield" size="sm" />Graph Hacks 2026 · Tracks 01 + 02 · built on FalkorDB</p>
+        <p className="eyebrow rise"><Icon name="shield" size="sm" /><span>Graph Hacks 2026 · Tracks 01 + 02 · <span className="eb-long">built on </span>FalkorDB</span></p>
         <h1 className="rise">
           <span className="line">One phished login.</span>
           <span className="line">Eighteen poisoned packages.</span>

@@ -20,7 +20,7 @@ export function Incident() {
         </div>
         <aside className="fair-note reveal">
           <ITile icon="shield" />
-          <p><b>A note on fairness.</b> <code>@qix</code> didn't do anything wrong: his account was phished. Chokepoint shows how much
+          <p><b>A note on fairness.</b> <code>@qix</code> didn't do anything wrong: their account was phished. Chokepoint shows how much
             of your app depends on a single account, so you can plan for when any account gets taken over.</p>
         </aside>
       </div>
@@ -83,7 +83,7 @@ export function HowItWorks() {
             The exact road a bad version took into your app, whether it reaches production, and whether your lockfile saved you.</Feat>
           <Feat icon="user" tone="gold" title="Who could poison me tomorrow?" example="@qix → 43 of 90 direct deps (webpack-dev-server, Aug 2025)">
             Every maintainer behind every hidden dependency, ranked by how many of your direct dependencies they can reach. No advisory needed.</Feat>
-          <Feat icon="pr" tone="ok" title="What do I change?" example={'"overrides": { "debug": "4.4.3" }'}>
+          <Feat icon="pr" tone="ok" title="What do I change?" example={'"overrides": { "debug@4.4.2": "4.4.3" }'}>
             The newest clean version that fits every range in your graph, written up as a pull request you approve with a click.</Feat>
         </div>
       </div>

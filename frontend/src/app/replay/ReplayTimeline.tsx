@@ -117,7 +117,7 @@ export function ReplayTimeline({ replay, onGo }: { replay: ReplayState; onGo: (i
           {data && shown !== null ? <ChokepointPanel data={data} step={shown} /> : <Loading />}
         </div>
       </div>
-      <p className="replay-note"><Icon name="shield" size="sm" /><span><code>@qix</code> didn't do anything wrong: his account was phished.
+      <p className="replay-note"><Icon name="shield" size="sm" /><span><code>@qix</code> didn't do anything wrong: their account was phished.
         Chokepoint shows how much of your app depends on a single account, so you can plan for when any account gets taken over.</span></p>
       </div>
     </div>

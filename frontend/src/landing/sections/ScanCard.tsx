@@ -37,7 +37,7 @@ export function ScanCard({ state, onScan, onReset }: { state: ScanState; onScan:
         <div className="scan-row">
           <div className="scan-input">
             <Icon name="code" size="sm" />
-            <input id="scan-repo" name="repo" placeholder="owner/repo or github.com/owner/repo" autoComplete="off" ref={input}
+            <input id="scan-repo" name="repo" placeholder="owner/repo or a GitHub URL" autoComplete="off" ref={input}
               spellCheck={false} aria-describedby="scan-help" readOnly={busy} value={repo} onChange={(e) => setRepo(e.target.value)} />
           </div>
           <button className="btn primary" id="scan-btn" type="submit" disabled={busy}>{busy ? "Scanning…" : "Scan"}</button>

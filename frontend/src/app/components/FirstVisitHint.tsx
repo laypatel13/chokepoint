@@ -15,7 +15,7 @@ export function FirstVisitHint() {
   return (
     <div className="first-hint" role="note" id="first-hint">
       <Icon name="graph" size="sm" />
-      <p><b>How to read this:</b> ask on the left; the graph lights up what the answer touches; <b>Cypher that ran</b> (bottom)
+      <p><b>How to read this:</b> ask a question; the graph lights up what the answer touches; <b>Cypher that ran</b>
         shows the exact queries. Click any dot to check that version.</p>
       <button className="btn" onClick={dismiss} aria-label="Dismiss the hint" title="Got it"><Icon name="plus" size="sm" className="x" /></button>
     </div>

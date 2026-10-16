@@ -104,6 +104,7 @@ button { font: inherit; cursor: pointer; color: inherit; }
 
 .chip { border: 1px solid rgb(var(--c-border-strong)); background: rgb(var(--c-surface)); border-radius: 999px; padding: 5px 12px; font: 500 12.5px var(--sans); color: rgb(var(--c-ink-2)); transition: background-color .15s, color .15s, border-color .15s; }
 .chip:hover { background: rgb(var(--c-surface-2)); color: rgb(var(--c-ink)); border-color: rgb(var(--c-control)); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }  /* shared: the app's chips and the story page's recent scans */
 
 select, input {
   font: 400 14px var(--sans); color: rgb(var(--c-ink)); background: rgb(var(--c-surface)); border: 1px solid rgb(var(--c-control));

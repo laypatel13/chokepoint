@@ -41,7 +41,9 @@ export function heroIntro(hero: HTMLElement): () => void {
 
   // The glow breathes very slowly (xPercent keeps it centred; GSAP owns its transform now).
   gsap.set(".hero-sec .glow", { x: 0, xPercent: -50 });
-  gsap.to(".hero-sec .glow", { scale: 1.1, duration: 7, ease: "sine.inOut", repeat: -1, yoyo: true });
+  const breathe = gsap.to(".hero-sec .glow", { scale: 1.1, duration: 7, ease: "sine.inOut", repeat: -1, yoyo: true });
+  // an endless loop only while you can see it: scrolled past the hero, it rests (battery, smoothness)
+  ScrollTrigger.create({ trigger: hero, start: "top bottom", end: "bottom top", onToggle: (self) => breathe.paused(!self.isActive) });
 
   // Gentle parallax: the graph leans away from the pointer (mouse/trackpad only).
   if (!window.matchMedia("(pointer: fine)").matches) return () => {};
@@ -64,7 +66,7 @@ export function heroIntro(hero: HTMLElement): () => void {
  * Nightjar's ALERT pulses at 13:13. The markup is the final picture; this only replays it. */
 function heroGraphStory(hero: HTMLElement) {
   const svg = hero.querySelector<HTMLElement>(".hero-graph");
-  if (!svg) return;
+  if (!svg || getComputedStyle(svg).display === "none") return;  // hidden on a phone: nothing to tell
   const q = (sel: string) => svg.querySelectorAll<SVGElement>(sel);
   svg.classList.remove("lit-qix", "lit-red", "lit-alert");
   gsap.timeline({ delay: 0.3, defaults: { ease: "power2.out" } })
