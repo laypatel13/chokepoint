@@ -102,7 +102,7 @@ def test_nightjar_notes_each_visit_with_only_its_own_words(github):
     first, second = github.comments
     assert first.startswith("🐦 Nightjar checked this fix: `debug@4.4.2` → `4.4.3`")
     assert second.startswith("🐦 Nightjar re-checked this fix: still `debug@4.4.2` → `4.4.3`, graph unchanged.")
-    assert "visit #2 · 2026-10-19 11:02 UTC" in second
+    assert "visit 2 · 2026-10-19 11:02 UTC" in second and "#" not in second  # GitHub would link "#2"
     assert second.endswith("Another visitor learned what happened on Sept 8, 2025.")
 
 

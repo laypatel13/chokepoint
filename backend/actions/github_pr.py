@@ -129,7 +129,7 @@ def visit_comment(repo: str, token: str, number: int, *, name: str, bad: str, pi
         issue.raise_for_status()
         visit = int(issue.json()["comments"]) + 1
         text = (f"🐦 Nightjar {'re-checked' if again else 'checked'} this fix: {'still ' if again else ''}"
-                f"`{name}@{bad}` → `{pin}`, graph unchanged. Opened from the live site · visit #{visit} · "
+                f"`{name}@{bad}` → `{pin}`, graph unchanged. Opened from the live site · visit {visit} · "
                 f"{now:%Y-%m-%d %H:%M} UTC\n\nAnother visitor learned what happened on Sept 8, 2025.")
         gh.post(f"/repos/{repo}/issues/{number}/comments", json={"body": text}).raise_for_status()
     return visit
