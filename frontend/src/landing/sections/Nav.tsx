@@ -14,7 +14,7 @@ export function Nav() {
           <a href="#nightjar">Nightjar</a>
           <a href="#cli">CLI</a>
         </div>
-        <a className="btn primary pill-btn" href={REPLAY_URL} aria-label="Replay the attack">Replay<span className="nav-long"> the attack</span> <Icon name="arrow" size="sm" /></a>
+        <a className="btn primary pill-btn" href={REPLAY_URL} aria-label="Replay the attack"><span>Replay<span className="nav-long"> the attack</span></span><Icon name="arrow" size="sm" /></a>
       </nav>
     </header>
   );

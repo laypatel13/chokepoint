@@ -1,6 +1,6 @@
 /* Story page, after Netra: floating pill nav, centered serif hero, soft bands, rounded cards, scroll reveal. */
 body.story { font-size: 15px; }
-.wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+.wrap { max-width: 1060px; margin: 0 auto; padding-inline: 24px; }  /* sides only: sections keep their own top/bottom space */
 
 /* scroll reveal: content is visible without JS or with reduced motion */
 /* Motion is GSAP (src/landing/motion.ts). Until it starts, animated content is hidden; a failsafe in <head>
@@ -10,8 +10,8 @@ body.story { font-size: 15px; }
 /* nav */
 .nav-wrap { position: sticky; top: 0; z-index: 40; padding: 16px 16px 0; }
 .nav { max-width: 1000px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px;
-  border: 1px solid rgb(var(--c-border)); border-radius: 999px; background: rgb(var(--c-surface) / .85);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: var(--shadow-card); }
+  border: 1px solid rgb(var(--c-border)); border-radius: 999px; background: rgb(var(--c-surface));
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: var(--shadow-card); }
 .brand-link { display: inline-flex; align-items: center; gap: 10px; color: rgb(var(--c-ink)); text-decoration: none; font: 600 18px var(--display); }
 .nav-links { display: flex; gap: 2px; margin-left: 16px; }
 .nav-links a { white-space: nowrap; color: rgb(var(--c-ink-2)); text-decoration: none; font: 500 13px var(--sans); padding: 6px 12px; border-radius: 999px; transition: background-color .15s, color .15s; }
@@ -205,7 +205,7 @@ body.story { font-size: 15px; }
   .sb:nth-child(n+3) { border-top: 1px solid rgb(var(--c-border)); }
   .hero-sec { padding-top: 56px; }
   .band, .plain { padding: 64px 0; }
-  .wrap { padding: 0 16px; }
+  .wrap { padding-inline: 16px; }
 }
 
 /* anchor jumps land below the floating nav */
