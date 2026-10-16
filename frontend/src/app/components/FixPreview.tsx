@@ -81,6 +81,7 @@ function OpenPr({ preview, project, fixKey }: { preview: Preview; project?: stri
       </div>
       <div id="pr-result">
         {result.pr && <a href={result.pr.url} target="_blank" rel="noopener">PR #{result.pr.number} {result.pr.existing ? "(already open)" : "opened"} <Arrow /></a>}
+        {result.pr?.visit && <p className="muted pr-visit">Nightjar noted your visit on the PR: visit #{result.pr.visit}.</p>}
         {result.error && <p className="err">{result.error}</p>}
       </div>
     </>

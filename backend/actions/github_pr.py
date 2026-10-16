@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -100,15 +101,38 @@ def preview(project: str, key: str, folder: str | None = None) -> dict:
     }
 
 
-def open_pr(project: str, key: str) -> dict:
+def open_pr(project: str, key: str, visit_note: bool = False) -> dict:
     """The website's button: a fix PR on GITHUB_DEMO_REPO (our sandbox fork). Only after a confirm click."""
     demo_repo, token = _demo_repo()
     if not (demo_repo and token):
         raise PRError("GITHUB_TOKEN and GITHUB_DEMO_REPO must be set in .env to open a PR")
     p = preview(project, key)
     name, bad = p["key"].rsplit("@", 1)
-    return open_override_pr(demo_repo, token, name=name, bad=bad, pin=p["safe"], title=p["title"], body=p["body"],
-                            branch=p["branch"])
+    out = open_override_pr(demo_repo, token, name=name, bad=bad, pin=p["safe"], title=p["title"], body=p["body"],
+                           branch=p["branch"])
+    if visit_note:
+        try:
+            out["visit"] = visit_comment(demo_repo, token, out["number"], name=name, bad=bad, pin=p["safe"],
+                                         again=out["existing"])
+        except (httpx.HTTPError, KeyError, ValueError):  # the PR itself is done; the note is a bonus
+            out["visit"] = None
+    return out
+
+
+def visit_comment(repo: str, token: str, number: int, *, name: str, bad: str, pin: str, again: bool,
+                  now: datetime | None = None) -> int:
+    """Nightjar's note on the website's sandbox PR, one per click: which fix it checked, the visit number and
+    the time. Every word is written here, from the graph's answer: nothing a visitor types reaches GitHub."""
+    now = now or datetime.now(timezone.utc)
+    with httpx.Client(base_url=API, headers=_headers(token), timeout=30) as gh:
+        issue = gh.get(f"/repos/{repo}/issues/{number}")
+        issue.raise_for_status()
+        visit = int(issue.json()["comments"]) + 1
+        text = (f"🐦 Nightjar {'re-checked' if again else 'checked'} this fix: {'still ' if again else ''}"
+                f"`{name}@{bad}` → `{pin}`, graph unchanged. Opened from the live site · visit #{visit} · "
+                f"{now:%Y-%m-%d %H:%M} UTC\n\nAnother visitor learned what happened on Sept 8, 2025.")
+        gh.post(f"/repos/{repo}/issues/{number}/comments", json={"body": text}).raise_for_status()
+    return visit
 
 
 def open_override_pr(repo: str, token: str, *, name: str, bad: str, pin: str, title: str, body: str, branch: str,

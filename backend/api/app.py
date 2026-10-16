@@ -307,7 +307,7 @@ def fix_open(body: Fix, request: Request):
     with limits.pr_lock:  # one at a time: two quick clicks reuse one PR instead of racing
         limits.reserve_new_pr()
         try:
-            out = _guard(github_pr.open_pr, body.project, body.key)
+            out = _guard(github_pr.open_pr, body.project, body.key, visit_note=limits.allow_visit_note())
         except Exception:
             limits.release_new_pr()
             raise

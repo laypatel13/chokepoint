@@ -89,7 +89,9 @@ It runs on free servers, so the first visit to the website after a quiet spell c
 ### 1. The replay: Sept 8, 2025
 
 **On the website:** open **[chokepoint.onrender.com](https://chokepoint.onrender.com)** and step through the
-attack, moment by moment.
+attack, moment by moment. At the end, the fix opens a **real pull request** on
+[our sandbox fork](https://github.com/laypatel13/webpack-dev-server/pulls), and Nightjar leaves a note there
+for your visit.
 
 **In your terminal:** install the CLI (the package is `ckpoint`; the command is `chokepoint`):
 
@@ -375,8 +377,10 @@ npm run e2e
 - **No AI required.** Without an LLM everything works; with one, it only picks tools and rewords results. It
   never writes or runs a database query, and never changes a verdict.
 - **Fixes never merge themselves.** PRs need your token (one repo, fine-grained), and a person merges them.
-- **The public website defends itself**: per-visitor limits, global caps, size limits, and PRs only on a
-  sandbox fork. Details in [`backend/api/limits.py`](backend/api/limits.py).
+- **The public website defends itself**: per-visitor limits, global caps and size limits. Its PR button
+  works only on a sandbox fork, only for the 18 packages poisoned on Sept 8, and every word on GitHub
+  (the PR, and Nightjar's note for each visit) is written by the server: nothing a visitor types gets there.
+  Details in [`backend/api/limits.py`](backend/api/limits.py).
 
 **Honest limits:** npm only (`package-lock.json` v2/v3, not yarn or pnpm yet). Chokepoint flags risky releases
 early; it doesn't detect malware by reading code, an advisory confirms that later. npm doesn't publish who

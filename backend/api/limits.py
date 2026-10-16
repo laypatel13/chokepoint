@@ -24,6 +24,7 @@ LIMITS: dict[str, tuple[int, int]] = {
     "pr": (3, 3600),      # open a fix PR on the sandbox fork
 }
 NEW_PRS_PER_DAY = int(os.getenv("CHOKEPOINT_MAX_PRS_PER_DAY", "10"))  # across all visitors
+VISIT_NOTES_PER_DAY = int(os.getenv("CHOKEPOINT_MAX_VISIT_NOTES_PER_DAY", "40"))  # Nightjar's notes on the sandbox PR
 SCANS_PER_HOUR = int(os.getenv("CHOKEPOINT_MAX_SCANS_PER_HOUR", "20"))  # across all visitors
 LLM_ASKS_PER_MINUTE = int(os.getenv("CHOKEPOINT_LLM_PER_MINUTE", "15"))  # the free key's budget; then keyword rules
 HEAVY_AT_ONCE = int(os.getenv("CHOKEPOINT_HEAVY_AT_ONCE", "6"))  # graph work running at the same time
@@ -31,6 +32,7 @@ HEAVY_AT_ONCE = int(os.getenv("CHOKEPOINT_HEAVY_AT_ONCE", "6"))  # graph work ru
 _hits: dict[tuple[str, str], deque[float]] = {}
 _new_prs: deque[float] = deque()
 _scans: deque[float] = deque()
+_visit_notes: deque[float] = deque()
 _llm: deque[float] = deque()
 _heavy = threading.BoundedSemaphore(HEAVY_AT_ONCE)
 _lock = threading.Lock()
@@ -111,6 +113,13 @@ def reserve_new_pr() -> None:
                                      "fork; come back tomorrow, or run the CLI.")
 
 
+def allow_visit_note() -> bool:
+    """Global cap on Nightjar's visit notes on the sandbox PR: lively, never a flood. Past it, the click still
+    opens or updates the PR; only the note is skipped."""
+    with _lock:
+        return _allow(_visit_notes, VISIT_NOTES_PER_DAY, 86_400, time.monotonic())
+
+
 def reserve_scan() -> None:
     """Global cap on new graph builds: rotating visitors can't keep the free server scanning all day."""
     with _lock:
@@ -144,6 +153,7 @@ def reset() -> None:
         _hits.clear()
         _new_prs.clear()
         _scans.clear()
+        _visit_notes.clear()
         _llm.clear()
 
 

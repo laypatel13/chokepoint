@@ -90,7 +90,8 @@ pre.code { background: rgb(var(--c-bg)); color: rgb(var(--c-ink-2)); border: 1px
 .pr-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .pr-buttons .btn { white-space: normal; text-align: center; }
 .pr-buttons #open-pr { flex: 1 1 auto; }
-.pr-why { margin: 0; font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.pr-why, .pr-visit { margin: 0; font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.pr-visit { margin-top: 6px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 /* `chokepoint map` (local mode): Nightjar's memory under the answer, and copyable commands. */

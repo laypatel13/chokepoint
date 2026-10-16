@@ -225,6 +225,7 @@ export interface PullRequest {
   url: string;
   number: number;
   existing?: boolean;
+  visit?: number | null;  // Nightjar's note on the PR for this click (the website's sandbox PR only)
 }
 
 export interface MemoryAlert {
