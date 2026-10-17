@@ -11,7 +11,8 @@
 </p>
 
 <p align="center">
-  <a href="#see-what-happened"><img alt="Watch the demo · coming soon" src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8E%20Watch%20the%20demo-coming%20soon-30363d?style=for-the-badge&labelColor=161b22"></a>
+  <a href="https://drive.google.com/file/d/1DY8HlSAMpVTsf3D6Liw6TRd3d2U3ecUC/view?usp=sharing"><img alt="Watch the demo on Google Drive (5 min video)" src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8E%20Watch%20the%20demo-Drive-30363d?style=for-the-badge&logo=googledrive&logoColor=white&labelColor=161b22"></a>
+  <a href="https://youtu.be/tDuUKNMRDRw"><img alt="Watch the demo on YouTube (5 min video)" src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8E%20Watch%20the%20demo-YouTube-30363d?style=for-the-badge&logo=youtube&logoColor=FF0000&labelColor=161b22"></a>
   <a href="https://chokepoint.onrender.com"><img alt="Try it live at chokepoint.onrender.com" src="https://img.shields.io/badge/Try%20it%20live-chokepoint.onrender.com-30363d?style=for-the-badge&logo=render&logoColor=white&labelColor=161b22"></a>
   <a href="cli/README.md"><img alt="Install: pipx install ckpoint" src="https://img.shields.io/badge/Install-pipx%20install%20ckpoint-30363d?style=for-the-badge&logo=pypi&logoColor=FFD43B&labelColor=161b22"></a>
 </p>
