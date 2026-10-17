@@ -70,6 +70,8 @@ def _for_llm(result: dict) -> str:
     if isinstance(slim.get("ranking"), list):  # no package lists; a team of tied accounts becomes a count
         slim["ranking"] = [{**{k: v for k, v in r.items() if k not in ("via", "tied_with")},
                             **({"tied_accounts": len(r["tied_with"])} if r.get("tied_with") else {})} for r in slim["ranking"]]
+    if isinstance(slim.get("alerts"), list):  # Nightjar's memory: the facts per release, so every one fits
+        slim["alerts"] = [{k: a.get(k) for k in ("key", "level", "at", "publisher")} for a in slim["alerts"]]
     return json.dumps(slim, default=str)[:4000]
 
 
@@ -121,9 +123,10 @@ def ask(project: str, question: str) -> dict[str, Any]:
                 model=llm.model(),
                 messages=[{"role": "system", "content": prompts.SYSTEM_EXPLAIN},
                           {"role": "user", "content": f"Question: {question}\nTool: {tool}\nTool result JSON: {_for_llm(result)}"}],
-                temperature=0, max_tokens=220, **llm.extra(),
+                temperature=0, max_tokens=900, **llm.extra(),
             )
-            answer = (r.choices[0].message.content or "").strip() or None
+            # Cut off by the token limit (thinking counts too): the graph's own summary instead of half a sentence.
+            answer = None if r.choices[0].finish_reason == "length" else (r.choices[0].message.content or "").strip() or None
             if answer:
                 out["mode"] = "llm"
         except Exception as e:

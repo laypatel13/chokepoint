@@ -150,8 +150,9 @@ async def ask_async(project: str, question: str, stdio: bool = False, use_llm: b
                           {"role": "user", "content": f"Question: {question}\n" + "\n".join(
                               f"Step {i}: tool {s['tool']}\nTool result JSON: {_for_llm(s.get('result', result))}"
                               for i, s in enumerate(steps, 1))}],
-                temperature=0, max_tokens=280, **llm.extra())
-            answer = _plain(r.choices[0].message.content or "") or None
+                temperature=0, max_tokens=900, **llm.extra())
+            # Cut off by the token limit (thinking counts too): the graph's own summary instead of half a sentence.
+            answer = None if r.choices[0].finish_reason == "length" else _plain(r.choices[0].message.content or "") or None
             if answer:
                 out["mode"] = "llm"
         except Exception as e:
