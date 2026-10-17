@@ -35,6 +35,17 @@ def main() -> None:
         lock = fetch_lockfile(incident.REPLAY_REPO, incident.REPLAY_REF)
         stats = load_project(incident.REPLAY_PROJECT, lock, replay=True, as_of=incident.REPLAY_AS_OF)
         print(f"{incident.REPLAY_PROJECT}: {stats} ({time.time() - t:.1f}s)", flush=True)
+    # Nightjar's memory of the replay: the same rules-only run as `chokepoint replay nightjar`, remembered, so
+    # "what did Nightjar flag?" has an answer on the site too. Real Sept 8 data only; kept apart as replay notes.
+    if (not only or incident.REPLAY_PROJECT in only) and is_loaded(incident.REPLAY_PROJECT):
+        from chokepoint import tools as T
+        from chokepoint.watch import replay
+        if fresh or not T.recall(incident.REPLAY_PROJECT).get("alerts"):
+            r = replay.run(incident.REPLAY_PROJECT, remember=True, use_llm=False)
+            print(f"{incident.REPLAY_PROJECT}: Nightjar's memory of the replay, first ALERT "
+                  f"{(r.get('first_alert') or {}).get('key')}", flush=True)
+        else:
+            print(f"{incident.REPLAY_PROJECT}: Nightjar's memory kept", flush=True)
     for repo in DEMO_REPOS:
         if todo(repo):
             t = time.time()

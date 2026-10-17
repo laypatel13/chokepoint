@@ -164,6 +164,12 @@ RETURN v.key AS key, v.version AS version, v.dev AS dev, v.published_at AS publi
        collect(a.id) AS advisories
 """
 
+# The installed versions of several packages at once (Nightjar flags new releases: these are what they would replace).
+VERSIONS_OF_NAMES = """
+MATCH (v:Version) WHERE v.name IN $names
+RETURN v.name AS name, v.key AS key
+"""
+
 # Advisories attached to one version.
 ADVISORIES_FOR_VERSION = """
 MATCH (a:Advisory)-[:AFFECTS]->(v:Version {key: $key})

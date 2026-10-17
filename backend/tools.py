@@ -573,7 +573,12 @@ def recall(project: str, limit: int = 20) -> dict[str, Any]:
                + (f"; the latest is {rows[0]['key']} ({rows[0]['level']})." if rows else ".")
                if rows else "Nightjar has no memory of the replay yet. `chokepoint replay nightjar` runs it on the real Sept 8 timeline and remembers what it flagged."
                if proj["replay"] else "Nightjar has no memory of this project yet. Start it with `chokepoint nightjar` in the app's folder.")
-    return {"alerts": rows, "summary": summary, "highlight": {"red": [r["key"] for r in alerts], "amber": [], "edges": []},
+    # A flagged release is new, so it isn't in the graph: light up the installed versions it would replace.
+    level = {r["key"].rpartition("@")[0]: r["level"] for r in reversed(rows)}
+    lit = t.run("VERSIONS_OF_NAMES", {"names": list(level)}) if level else []
+    red = [v["key"] for v in lit if level[v["name"]] in ("ALERT", "CONFIRMED")]
+    return {"alerts": rows, "summary": summary,
+            "highlight": {"red": red, "amber": [v["key"] for v in lit if v["key"] not in red], "edges": []},
             "cypher": t.log}
 
 
