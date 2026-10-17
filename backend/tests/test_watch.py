@@ -37,6 +37,76 @@ def test_trusted_publishing_ci_is_not_a_foreign_publisher():
     assert (level, pts) == ("WATCH", 3) and not any("maintainer list" in w for w in why)
 
 
+def test_a_burst_that_is_the_accounts_usual_rhythm_scores_nothing_but_is_still_shown():
+    # Real case: the @types bot releases @types/node 18 and 20 together every week.
+    level, pts, why = score(rel(name="@types/node", version="20.19.11", publisher="types", ranges_accepting=3,
+                                reach=43, reach_rank=1, direct_total=90, burst=3, burst_seconds=5,
+                                usual_burst="2025-08-08"))
+    assert (level, pts) == ("WATCH", 4)
+    assert any("its usual rhythm (last burst on these packages: 2025-08-08)" in w for w in why)
+
+
+def test_a_first_ever_burst_still_alerts_and_says_so():
+    # Sept 8: @qix had never published three packages at once.
+    level, _, why = score(rel(name="chalk", version="5.6.1", ranges_accepting=6, reach=43, reach_rank=1,
+                              direct_total=90, burst=3, burst_seconds=54, usual_burst=""))
+    assert level == "ALERT" and any("a first for this account on these packages" in w for w in why)
+
+
+def test_last_burst_finds_only_real_bursts_in_the_past_year():
+    from datetime import datetime, timedelta, timezone
+
+    from chokepoint.watch.signals import last_burst
+    t0 = datetime(2025, 9, 8, 13, 12, tzinfo=timezone.utc)
+    spread = [t0 - timedelta(days=d) for d in (3, 40, 90)]                         # one release at a time
+    old = [t0 - timedelta(days=400, seconds=s) for s in (0, 60, 120)]              # a burst, but over a year ago
+    assert last_burst(spread + old, before=t0) is None
+    weekly = [t0 - timedelta(days=7, seconds=s) for s in (0, 5, 30)]               # a bot's weekly burst
+    assert last_burst(spread + weekly, before=t0) == t0 - timedelta(days=7, seconds=30)
+
+
+def test_a_burst_never_counts_as_its_own_habit():
+    """npm already lists the burst's own releases (some maybe not polled yet): only earlier bursts count."""
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace
+
+    from chokepoint.watch.agent import Watcher
+    t0 = datetime(2025, 9, 8, 13, 13, 5, tzinfo=timezone.utc)
+    burst = [("qix", t0 - timedelta(seconds=26), "debug@4.4.2"), ("qix", t0, "chalk@5.6.1"),
+             ("qix", t0 + timedelta(seconds=20), "ansi-styles@6.2.2")]
+    now_on_npm = [(t0 - timedelta(seconds=55), "ansi-regex@6.2.1", "qix"),   # same burst, not polled yet
+                  (t0 - timedelta(seconds=26), "debug@4.4.2", "qix"), (t0, "chalk@5.6.1", "qix"),
+                  (t0 + timedelta(seconds=20), "ansi-styles@6.2.2", "qix"),
+                  (t0 - timedelta(days=120), "debug@4.4.1", "qix")]
+    me = SimpleNamespace(feed=SimpleNamespace(history=lambda names: now_on_npm))
+    assert Watcher._usual_burst(me, "qix", burst) == ""
+    weekly = [(t0 - timedelta(days=7, seconds=s), f"debug@4.3.{s}", "qix") for s in (0, 5, 30)]
+    me.feed.history = lambda names: now_on_npm + weekly
+    assert Watcher._usual_burst(me, "qix", burst) == (t0 - timedelta(days=7)).date().isoformat()
+
+
+def test_trusted_publishing_counts_without_a_provenance_attestation():
+    """Real case: Babel publishes through npm trusted publishing (OIDC) without provenance."""
+    import asyncio
+    import tempfile
+    from pathlib import Path
+
+    import httpx
+
+    from chokepoint.watch.feed import Feed
+    user = {"name": "GitHub Actions", "trustedPublisher": {"id": "github"}}
+    docs = {"/@babel%2Ftypes/7.28.5": {"_npmUser": user, "dist": {}, "maintainers": [{"name": "nicolo-ribaudo"}]},
+            "/@babel%2Ftypes/7.28.4": {"_npmUser": {"name": "nicolo-ribaudo"}, "dist": {}}}
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json=docs[req.url.raw_path.decode()]))
+
+    async def run():
+        async with httpx.AsyncClient(transport=transport, base_url="https://registry.npmjs.org") as c:
+            return await Feed(Path(tempfile.mkdtemp()) / "s.sqlite")._details(
+                c, asyncio.Semaphore(1), "@babel/types", "7.28.5", "7.28.4")
+    nv = asyncio.run(run())
+    assert nv.trusted_publisher and not nv.provenance
+
+
 def test_advisory_confirms_and_action_pins_what_you_have():
     r = rel(ranges_accepting=29, advisory="MAL-2025-46974", pinned=["4.4.1"])
     level, _, why = score(r)

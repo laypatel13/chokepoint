@@ -14,7 +14,7 @@ import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -24,7 +24,7 @@ from chokepoint.ingest import osv
 from chokepoint.watch import brief as B
 from chokepoint.watch.feed import Feed, NewVersion
 from chokepoint.watch.memory import Memory
-from chokepoint.watch.signals import BURST_WINDOW_S, Release, action_for, pin_for, score
+from chokepoint.watch.signals import BURST_MIN, BURST_WINDOW_S, Release, action_for, last_burst, pin_for, score
 
 
 @dataclass
@@ -51,7 +51,7 @@ class Watcher:
     use_llm: bool = True              # the LLM investigates ALERTs when one is configured; rules decide either way
     drill: bool = False               # fire drill: real Sept 8 releases fed into this live loop (see sept8_drill)
     open_pr: Callable[..., str] | None = None  # --pr: opens a fix PR on your repo (set up by the CLI); never in a drill
-    recent: list[tuple[str, datetime]] = field(default_factory=list)  # (publisher, seen at) for bursts
+    recent: list[tuple[str, datetime, str]] = field(default_factory=list)  # (actor, seen at, name@version) for bursts
 
     def __post_init__(self):
         safe = self.project.replace("/", "_").replace(":", "_")
@@ -75,12 +75,13 @@ class Watcher:
 
     def _handle(self, nv: NewVersion) -> Event:
         now = datetime.fromisoformat(nv.at.replace("Z", "+00:00")) if self.drill else datetime.now(timezone.utc)
-        self.recent = [(p, t) for p, t in self.recent if (now - t).total_seconds() <= BURST_WINDOW_S]
+        self.recent = [x for x in self.recent if (now - x[1]).total_seconds() <= BURST_WINDOW_S]
         # A CI identity like "GitHub Actions" publishes for thousands of unrelated packages, so for
         # trusted publishing the actor is that package's own pipeline, not the shared CI account.
         actor = f"{nv.name} CI" if nv.trusted_publisher else nv.publisher
-        self.recent.append((actor, now))
-        burst = [t for p, t in self.recent if p == actor]
+        self.recent.append((actor, now, f"{nv.name}@{nv.version}"))
+        burst = [x for x in self.recent if x[0] == actor]
+        usual = self._usual_burst(nv.publisher, burst) if len(burst) >= BURST_MIN and not nv.trusted_publisher else None
         key = f"{nv.name}@{nv.version}"
 
         saved = T.lockfile_saved_you(self.project, key)
@@ -102,7 +103,7 @@ class Watcher:
             ranges_example=f"{accepting[0]['range']} from {accepting[0]['parent']}" if accepting else None,
             pinned=sorted({q["pinned"] for q in saved["requirements"]}),
             reach=focus.get("reach"), reach_rank=focus.get("rank"), direct_total=self.direct,
-            burst=len(burst), burst_seconds=int((burst[-1] - burst[0]).total_seconds()),
+            burst=len(burst), burst_seconds=int((burst[-1][1] - burst[0][1]).total_seconds()), usual_burst=usual,
             new_install_script=nv.new_install_script,
             outside_maintainers=(nv.publisher not in maintainers) if maintainers and not nv.trusted_publisher and not self.drill else None,
             trusted_publisher=nv.trusted_publisher,
@@ -131,6 +132,22 @@ class Watcher:
         elif level == "WATCH":
             self.memory.set_brief(aid, B.template(r, level, ev.action), "template")
         return ev
+
+    def _usual_burst(self, publisher: str, burst: list[tuple[str, datetime, str]]) -> str | None:
+        """Has this account published in bursts on these same packages this past year? Then a burst is its
+        rhythm (the @types bot, a monorepo release), not a takeover: returns the date of its last one, or ""
+        for a first-ever burst. On Sept 8, @qix had never released three packages at once. None if npm
+        couldn't be asked: the burst then counts, as it always did."""
+        keys = {x[2] for x in burst}
+        try:
+            hist = self.feed.history(sorted({k.rsplit("@", 1)[0] for k in keys}))
+        except httpx.HTTPError:
+            return None
+        # the burst's own releases are already in npm's history by now (some maybe not polled yet): only
+        # releases outside it, and bursts that started at least a window earlier, count as its habit
+        last = last_burst([t for t, key, who in hist if who == publisher and key not in keys],
+                          before=burst[0][1] - timedelta(seconds=BURST_WINDOW_S))
+        return last.date().isoformat() if last else ""
 
     def _reach(self, publisher: str) -> dict:
         """The publisher's row in the ranking, computed once per cycle: a burst of 18 releases by one

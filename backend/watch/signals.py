@@ -15,9 +15,11 @@ Levels:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 
 BURST_WINDOW_S = 600   # releases from one account within 10 minutes count as a burst
 BURST_MIN = 3
+HABIT_DAYS = 365       # an account that already burst on these packages this past year: that's its rhythm
 
 
 @dataclass
@@ -34,6 +36,8 @@ class Release:
     direct_total: int | None = None
     burst: int = 1                            # releases by this publisher inside the burst window
     burst_seconds: int | None = None
+    usual_burst: str | None = None            # date of this account's last earlier burst on these packages:
+                                              # bursts are its normal rhythm (bots, monorepos), so this one scores 0
     new_install_script: str | None = None     # e.g. "postinstall" (None = no new script / unknown)
     outside_maintainers: bool | None = None   # publisher isn't in the package's maintainer list
     provenance_dropped: bool | None = None    # previous version had provenance, this one hasn't
@@ -62,9 +66,13 @@ def score(r: Release) -> tuple[str, int, list[str]]:
             pts += 1
         why.append(f"@{r.publisher} reaches {r.reach}/{r.direct_total} of your direct dependencies"
                    + (f" (#{r.reach_rank})" if r.reach_rank else ""))
-    if r.burst >= BURST_MIN:
+    if r.burst >= BURST_MIN and r.usual_burst:
+        why.append(f"burst: {r.burst} releases from @{r.publisher} in {r.burst_seconds}s, its usual rhythm"
+                   f" (last burst on these packages: {r.usual_burst})")
+    elif r.burst >= BURST_MIN:
         pts += 3
-        why.append(f"burst: {r.burst} releases from @{r.publisher} in {r.burst_seconds}s")
+        why.append(f"burst: {r.burst} releases from @{r.publisher} in {r.burst_seconds}s"
+                   + (", a first for this account on these packages" if r.usual_burst == "" else ""))
     if r.new_install_script:
         pts += 3
         why.append(f"new install script: {r.new_install_script}")
@@ -75,7 +83,7 @@ def score(r: Release) -> tuple[str, int, list[str]]:
         pts += 2
         why.append("no provenance attestation, though the previous version had one")
     if r.trusted_publisher:
-        why.append("published by the package's own CI through npm trusted publishing, with provenance")
+        why.append("published by the package's own CI through npm trusted publishing")
     if r.prior_alerts:
         pts += 1
         why.append(f"@{r.publisher} already triggered {r.prior_alerts} alert(s)")
@@ -87,6 +95,14 @@ def score(r: Release) -> tuple[str, int, list[str]]:
     if in_range and pts >= 3:
         return "WATCH", pts, why
     return "INFO", pts, why
+
+
+def last_burst(times: list[datetime], before: datetime) -> datetime | None:
+    """The start of this account's most recent earlier burst (BURST_MIN releases within the window) in the
+    HABIT_DAYS before `before`, or None. `times`: when the account published the packages in question."""
+    t = sorted(x for x in times if before - timedelta(days=HABIT_DAYS) <= x < before)
+    starts = [t[i] for i in range(len(t) - BURST_MIN + 1) if (t[i + BURST_MIN - 1] - t[i]).total_seconds() <= BURST_WINDOW_S]
+    return starts[-1] if starts else None
 
 
 def _ver(v: str) -> list[int]:

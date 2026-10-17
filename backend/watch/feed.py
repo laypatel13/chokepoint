@@ -49,6 +49,7 @@ class Feed:
         self.db = sqlite3.connect(state_path)
         self.db.execute("CREATE TABLE IF NOT EXISTS seen (name TEXT PRIMARY KEY, etag TEXT, latest TEXT, versions TEXT)")
         self.stats = {"checked": 0, "baseline": 0}
+        self._history: dict[str, list[tuple[datetime, str, str]]] = {}  # package -> its releases (see history)
 
     def _get(self, name: str):
         return self.db.execute("SELECT etag, latest, versions FROM seen WHERE name = ?", (name,)).fetchone()
@@ -97,8 +98,24 @@ class Feed:
             new_install_script=new_scripts[0] if new_scripts else None,
             maintainers=[x.get("name") for x in (m.get("maintainers") or []) if isinstance(x, dict)],
             provenance=has_prov, provenance_before=bool((p.get("dist") or {}).get("attestations")) if p else None,
-            trusted_publisher=bool(user.get("trustedPublisher")) and has_prov,
+            # OIDC from the package's own CI, with or without a provenance attestation (Babel publishes without)
+            trusted_publisher=bool(user.get("trustedPublisher")),
         )
+
+    def history(self, names: list[str]) -> list[tuple[datetime, str, str]]:
+        """Every release of these packages: (published, name@version, publisher). Read only when a burst starts,
+        to tell an account's usual rhythm (bots, monorepos) from a first-ever burst. Full packuments are big,
+        so each is fetched once per watcher run."""
+        cache = self._history
+        with httpx.Client(timeout=60, follow_redirects=True) as client:
+            for name in names:
+                if name not in cache:
+                    doc = client.get(_url(name)).raise_for_status().json()
+                    versions, times = doc.get("versions") or {}, doc.get("time") or {}
+                    cache[name] = [(datetime.fromisoformat(t.replace("Z", "+00:00")), f"{name}@{v}",
+                                    (versions[v].get("_npmUser") or {}).get("name", "unknown"))
+                                   for v, t in times.items() if v in versions]
+        return [x for n in names for x in cache[n]]
 
     def poll(self, names: list[str], concurrency: int = 8) -> list[NewVersion]:
         async def run():

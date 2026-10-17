@@ -352,7 +352,7 @@ Each new release gets points for plain, checkable signals:
 | Signal | Points |
 |---|:---:|
 | A fresh install would take it (inside your declared ranges) | +3 |
-| A burst: 3 or more releases from one account within 10 minutes | +3 |
+| A burst: 3 or more releases from one account within 10 minutes, a first for it on those packages this past year | +3 |
 | A new install script (`preinstall`, `install`, `postinstall`) | +3 |
 | The publisher isn't in the package's maintainer list (trusted publishing from the package's own CI is recognised) | +3 |
 | Provenance dropped, though the previous version had it | +2 |
@@ -363,6 +363,23 @@ Inside your ranges, **3 points** is a **WATCH** and **6** an **ALERT**; an OSV m
 **CONFIRMED**. On Sept 8, `chalk@5.6.1` scored 7: inside 6 ranges (+3), the third release in 54 seconds (+3),
 from an account reaching 43 of 90 dependencies (+1). An LLM, if you have one, may investigate an ALERT with up
 to three read-only tools and write the brief. **It never changes the verdict.**
+
+#### Does it cry wolf? A backtest on 3 months of real releases
+
+Catching one attack proves little if Nightjar also alarms on ordinary days. So we fed it every real release of the
+replay app's 1,248 packages from Aug 1 to Oct 31, 2025 (**3,049 releases**), with the Sept 8 attack mixed in at
+npm's real times.
+
+| | ALERTs on ordinary releases | Days with one | Sept 8 |
+|---|--:|--:|---|
+| First version of the rules | 119 | 39 | ALERT at 13:13 |
+| **Today's rules** | **6** | **3** | **ALERT at 13:13** |
+
+Bots and monorepos publish in bursts every week (the `@types` bot, Babel, typescript-eslint, cspell), so a burst
+now counts only when it's **a first for that account on those packages**: `@qix` had never released three at once.
+And npm trusted publishing counts even without a provenance attestation (Babel's own CI). Of the 6 left, 3 are the
+maintainers' own clean-up releases on Sept 8 afternoon and 1 is a dropped provenance, both worth a look. Re-run it
+yourself: `python backend/scripts/backtest.py`.
 
 ### Memory that agents share
 
