@@ -34,7 +34,10 @@ def main() -> None:
 
     import typer
     from typer import rich_utils
-    from typer._click import exceptions as cx  # Typer bundles its own click
+    try:
+        from typer._click import exceptions as cx  # newer Typer bundles its own click
+    except ImportError:
+        from click import exceptions as cx  # older Typer uses the click package
 
     # Not standalone, so usage errors come back to us and a missing argument gets a real hint. The rest is
     # what standalone mode does: Typer's own error box, "Aborted!", the exit code.
