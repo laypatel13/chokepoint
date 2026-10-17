@@ -577,8 +577,12 @@ def recall(project: str, limit: int = 20) -> dict[str, Any]:
     level = {r["key"].rpartition("@")[0]: r["level"] for r in reversed(rows)}
     lit = t.run("VERSIONS_OF_NAMES", {"names": list(level)}) if level else []
     red = [v["key"] for v in lit if level[v["name"]] in ("ALERT", "CONFIRMED")]
+    amber = [v["key"] for v in lit if v["key"] not in red]
+    chains = [r["chain"] for r in t.run("CHAINS_TO_KEYS", {"keys": red + amber})] if lit else []
+    edges = sorted({(a, b) for c in chains for a, b in zip(c, c[1:])})
+    via = sorted({n for c in chains for n in c[1:-1]} - set(red) - set(amber))
     return {"alerts": rows, "summary": summary,
-            "highlight": {"red": red, "amber": [v["key"] for v in lit if v["key"] not in red], "edges": []},
+            "highlight": {"red": red, "amber": amber, "via": via, "edges": [list(e) for e in edges]},
             "cypher": t.log}
 
 

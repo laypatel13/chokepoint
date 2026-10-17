@@ -170,6 +170,16 @@ MATCH (v:Version) WHERE v.name IN $names
 RETURN v.name AS name, v.key AS key
 """
 
+# One shortest chain from the project to each of several versions (to draw them as a tree, not loose dots).
+CHAINS_TO_KEYS = """
+MATCH (p:Project) UNWIND $keys AS k
+MATCH (v:Version {key: k})
+WITH p, v
+MATCH path = allShortestPaths((p)-[:DEPENDS_ON*]->(v))
+WITH v, collect([n IN nodes(path) | coalesce(n.key, n.repo)])[0] AS chain
+RETURN chain
+"""
+
 # Advisories attached to one version.
 ADVISORIES_FOR_VERSION = """
 MATCH (a:Advisory)-[:AFFECTS]->(v:Version {key: $key})
