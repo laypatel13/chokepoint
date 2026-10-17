@@ -33,6 +33,7 @@ def main() -> None:
     from chokepoint.cli.app import app  # imported after the environment is ready
 
     import typer
+    from redis.exceptions import ConnectionError as RedisConnectionError
     from typer import rich_utils
     try:
         from typer._click import exceptions as cx  # newer Typer bundles its own click
@@ -51,7 +52,23 @@ def main() -> None:
     except typer.Abort:
         rich_utils.rich_abort_error()
         sys.exit(1)
+    except RedisConnectionError as e:  # no graph database to talk to
+        _no_database(e)
     sys.exit(code if isinstance(code, int) else 0)
+
+
+def _no_database(e: Exception) -> None:
+    """No built-in database (Python 3.11) and no FalkorDB server: say how to get one, not a traceback."""
+    from chokepoint.cli import render as R
+
+    if os.environ.get("CHOKEPOINT_BACKEND") != "server":
+        raise e
+    host = f"{os.getenv('FALKORDB_HOST', 'localhost')}:{os.getenv('FALKORDB_PORT', '6379')}"
+    R.err.print(f"[bold red]error[/] no graph database at {host}.")
+    R.err.print(f"  The built-in one needs Python 3.12+ (this is {sys.version_info.major}.{sys.version_info.minor}). Either:")
+    R.err.print("  [cyan]pipx install --python 3.12 ckpoint[/]   [dim](or: uv tool install --python 3.12 ckpoint)[/]")
+    R.err.print("  [cyan]docker run -d -p 6379:6379 falkordb/falkordb[/]   [dim](keeps this Python)[/]")
+    sys.exit(1)
 
 
 def _missing(e) -> None:
