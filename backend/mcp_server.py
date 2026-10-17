@@ -8,6 +8,8 @@ Run:  python -m chokepoint.mcp_server   or   chokepoint mcp   (stdio transport)
 
 from __future__ import annotations
 
+import os
+
 from mcp.server.mcpserver import MCPServer
 
 from chokepoint import tools as T
@@ -15,9 +17,14 @@ from chokepoint import tools as T
 mcp = MCPServer("chokepoint", instructions="npm supply-chain triage and chokepoint analysis. Call list_projects first.")
 
 
+# Chokepoint's own agent (site, map, `chokepoint ask`) draws answers on the graph, so it keeps the highlight:
+# set by the agent in-process, or through the environment when it starts this server over stdio.
+KEEP_HIGHLIGHT = os.getenv("CHOKEPOINT_MCP_HIGHLIGHT") == "1"
+
+
 def _clean(result: dict) -> dict:
-    """Drop UI-only fields; keep the summary, the data and the Cypher that ran."""
-    out = {k: v for k, v in result.items() if k != "highlight"}
+    """Drop UI-only fields (unless KEEP_HIGHLIGHT); keep the summary, the data and the Cypher that ran."""
+    out = {k: v for k, v in result.items() if KEEP_HIGHLIGHT or k != "highlight"}
     out["cypher"] = [{"name": c["name"], "ms": c["ms"]} for c in result.get("cypher", [])]
     return out
 

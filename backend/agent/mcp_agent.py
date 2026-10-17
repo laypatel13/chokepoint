@@ -77,13 +77,17 @@ def _server_params():
     # The server only needs the graph settings: your LLM key and GitHub token stay out of its environment.
     # -P: don't put the current folder on the import path, or a file named httpx.py in a cloned repo would run.
     env = {k: v for k, v in os.environ.items() if k not in SECRET_ENV}
+    env["CHOKEPOINT_MCP_HIGHLIGHT"] = "1"  # this agent draws the answer on the graph: keep what to light up
     return StdioServerParameters(command=sys.executable, args=["-P", "-m", "chokepoint.mcp_server"], env=env)
 
 
 async def ask_async(project: str, question: str, stdio: bool = False, use_llm: bool = True) -> dict[str, Any]:
     from mcp.client.client import Client
 
+    from chokepoint import mcp_server
     from chokepoint.mcp_server import mcp as server
+
+    mcp_server.KEEP_HIGHLIGHT = True  # in-process: this agent draws the answer on the graph
 
     for name in ("", "httpx", "mcp", "nodesemver"):  # the MCP server sets up chatty logging; keep the terminal clean
         logging.getLogger(name).setLevel(logging.WARNING)
